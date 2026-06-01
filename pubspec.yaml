@@ -1,0 +1,70 @@
+name: arvind_party
+description: Arvind Party - Live Social Streaming App
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  get: ^4.7.3
+
+  # Video Background
+  video_player: ^2.8.6
+
+  # Social Login (abhi stub hai, baad mein real credentials dalna)
+  flutter_facebook_auth: ^6.2.0
+  google_sign_in: ^6.2.1
+  sign_in_with_apple: ^6.1.1
+
+  # UI
+  flutter_svg: 2.2.1
+  cached_network_image: 3.4.1
+  shimmer: ^3.0.0
+  lottie: 3.3.2
+  font_awesome_flutter: ^10.7.0
+
+  # Phone Auth (baad mein Firebase se connect karenge)
+  pinput: ^3.0.1
+  intl_phone_number_input: ^0.7.4
+
+  # Utils
+  flutter_animate: ^4.5.0
+  glassmorphism: ^2.0.0
+  dio: 5.9.0
+  get_storage: ^2.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  # यहाँ ऐप आइकॉन जनरेटर पैकेज जुड़ गया है
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/videos/
+    - assets/images/
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+
+# यहाँ ऐप आइकॉन की सेटिंग्स जोड़ दी है
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/icon.png"
