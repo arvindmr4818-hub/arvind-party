@@ -1,11 +1,17 @@
-class RechargePackageModel {
+class RechargePackage {
   final String id;
-  final int coins;
+  final int diamonds;
   final double price;
+  final String currency;
+  final int bonus;
 
-  RechargePackageModel({
+  RechargePackage({
     required this.id,
-    required this.coins,
+    required this.diamonds,
     required this.price,
+    this.currency = 'USD',
+    this.bonus = 0,
   });
+
+  double get totalDiamonds => (diamonds + bonus).toDouble();
 }

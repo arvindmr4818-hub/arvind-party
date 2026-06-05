@@ -1,0 +1,2 @@
+-dontwarn com.google.android.gms.auth.api.credentials.**
+-keep class com.google.android.gms.auth.api.credentials.** { *; }

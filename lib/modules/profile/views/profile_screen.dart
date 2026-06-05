@@ -56,21 +56,26 @@ class ProfileScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.blue.shade100,
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: Text(
-                  "Lv.${controller.level.value}",
-                  style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                  "Lv.${controller.userLevel.value}",
+                  style: const TextStyle(
+                      color: Colors.blue, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(width: 15),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
                 decoration: BoxDecoration(
-                  color: controller.isVip.value ? Colors.orange.shade100 : Colors.grey.shade200,
+                  color: controller.isVip.value
+                      ? Colors.orange.shade100
+                      : Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: Text(
@@ -91,7 +96,8 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   Text(
                     "${controller.followers.value}",
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 5),
                   const Text("Followers", style: TextStyle(color: Colors.grey)),
@@ -101,7 +107,8 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   Text(
                     "${controller.following.value}",
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 5),
                   const Text("Following", style: TextStyle(color: Colors.grey)),
@@ -137,7 +144,8 @@ class ProfileScreen extends StatelessWidget {
     return ListTile(
       leading: Icon(icon, color: Colors.blue),
       title: Text(title, style: const TextStyle(fontSize: 16)),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+      trailing:
+          const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
       onTap: () {},
     );
   }

@@ -17,6 +17,7 @@ dependencies:
 
   # Video Background
   video_player: ^2.8.6
+  shared_preferences: ^2.2.2
 
   # Social Login (abhi stub hai, baad mein real credentials dalna)
   flutter_facebook_auth: ^6.2.0
@@ -39,6 +40,8 @@ dependencies:
   glassmorphism: ^2.0.0
   dio: 5.9.0
   get_storage: ^2.1.1
+  socket_io_client: ^3.1.4
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
@@ -51,9 +54,9 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/videos/
+    - assets/login/videos/lion_bg.mp4
     - assets/images/
-
+    - assets/login/login_icon.png
   fonts:
     - family: Poppins
       fonts:
