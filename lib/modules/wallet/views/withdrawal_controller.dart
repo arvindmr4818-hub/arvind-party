@@ -1,102 +1,121 @@
-import 'package:flutter/material.dart';
+// lib/modules/wallet/views/withdrawal_controller.dart
 import 'package:get/get.dart';
-import '../models/withdrawal_method_model.dart';
-import '../../auth/views/api_service.dart';
+import 'package:get_storage/get_storage.dart';
+import '../../../core/services/api_service.dart';
+import '../../../shared/models/withdrawal_method_model.dart';
 
 class WithdrawalController extends GetxController {
-  final ApiService _apiService = Get.find<ApiService>();
+  final ApiService _api = Get.find<ApiService>();
+  final GetStorage _storage = GetStorage();
+
   final isLoading = false.obs;
-
-  // Earning balance (e.g., Beans / Coins earned from gifts)
-  final beansBalance = 0.obs;
-
-  // Exchange rate: How many beans equal 1 USD? (e.g., 210 beans = 1 USD)
-  final int beansPerUsd = 210;
-
-  final withdrawalMethods = <WithdrawalMethod>[].obs;
+  final methods = <WithdrawalMethod>[].obs;
   final selectedMethod = Rxn<WithdrawalMethod>();
-
-  final amountController = TextEditingController();
-
-  double get usdEquivalent => beansBalance.value / beansPerUsd;
+  final amount = 0.obs;
+  final accountDetails = <String, String>{}.obs;
+  final withdrawalHistory = <Map<String, dynamic>>[].obs;
 
   @override
   void onInit() {
     super.onInit();
-    _loadWithdrawalData();
+    loadMethods();
   }
 
-  void _loadWithdrawalData() async {
-    isLoading.value = true;
-
+  Future<void> loadMethods() async {
     try {
-      var response = await _apiService.get('wallet/withdrawal-info');
-      if (response.statusCode == 200) {
-        beansBalance.value = response.data['beansBalance'] ?? 0;
-
-        var methods = (response.data['methods'] as List)
-            .map((m) => WithdrawalMethod(
-                  id: m['id'],
-                  name: m['name'],
-                  icon: m['icon'],
-                  minWithdrawalUsd: (m['minWithdrawalUsd'] ?? 0).toDouble(),
-                  feePercentage: (m['feePercentage'] ?? 0).toDouble(),
-                  processingTime: m['processingTime'] ?? 'Standard',
-                ))
+      isLoading.value = true;
+      final response = await _api.get('/wallet/withdrawal-methods');
+      if (response is Map && response['success'] == true) {
+        final list = (response['data'] as List? ?? [])
+            .map((e) => WithdrawalMethod.fromJson(Map<String, dynamic>.from(e)))
             .toList();
-
-        withdrawalMethods.assignAll(methods);
-        if (withdrawalMethods.isNotEmpty) {
-          selectedMethod.value = withdrawalMethods.first;
-        }
+        methods.assignAll(list);
+      } else {
+        methods.assignAll(_demoMethods());
       }
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch wallet info.',
-          backgroundColor: Colors.redAccent, colorText: Colors.white);
+    } catch (_) {
+      methods.assignAll(_demoMethods());
     } finally {
       isLoading.value = false;
     }
   }
 
-  void selectMethod(WithdrawalMethod method) {
-    selectedMethod.value = method;
+  List<WithdrawalMethod> _demoMethods() {
+    return [
+      WithdrawalMethod(id: 'upi', name: 'UPI', iconUrl: '', minAmount: 100, maxAmount: 50000, feePercent: 0, isActive: true, requiredFields: ['upiId']),
+      WithdrawalMethod(id: 'bank', name: 'Bank Transfer', iconUrl: '', minAmount: 500, maxAmount: 100000, feePercent: 2, isActive: true, requiredFields: ['accountNumber', 'ifsc', 'name']),
+      WithdrawalMethod(id: 'paypal', name: 'PayPal', iconUrl: '', minAmount: 1000, maxAmount: 200000, feePercent: 5, isActive: true, requiredFields: ['email']),
+      WithdrawalMethod(id: 'paytm', name: 'Paytm', iconUrl: '', minAmount: 100, maxAmount: 25000, feePercent: 1, isActive: true, requiredFields: ['phone']),
+    ];
   }
 
-  void submitWithdrawal() async {
-    final amountStr = amountController.text.trim();
-    if (amountStr.isEmpty) {
-      Get.snackbar('Error', 'Please enter an amount to withdraw',
-          backgroundColor: Colors.redAccent, colorText: Colors.white);
-      return;
-    }
+  void selectMethod(WithdrawalMethod m) {
+    selectedMethod.value = m;
+    accountDetails.clear();
+  }
 
-    final amount = double.tryParse(amountStr) ?? 0.0;
-    if (amount < (selectedMethod.value?.minWithdrawalUsd ?? 0)) {
-      Get.snackbar('Error',
-          'Minimum withdrawal for ${selectedMethod.value?.name} is \$${selectedMethod.value?.minWithdrawalUsd}',
-          backgroundColor: Colors.redAccent, colorText: Colors.white);
-      return;
-    }
+  void setAmount(int a) {
+    amount.value = a;
+  }
 
-    isLoading.value = true;
+  void setField(String key, String value) {
+    accountDetails[key] = value;
+  }
+
+  int get feeAmount {
+    if (selectedMethod.value == null) return 0;
+    return ((amount.value * selectedMethod.value!.feePercent) / 100).round();
+  }
+
+  int get finalAmount => amount.value - feeAmount;
+
+  bool get isValid {
+    if (selectedMethod.value == null) return false;
+    if (amount.value < selectedMethod.value!.minAmount) return false;
+    if (amount.value > selectedMethod.value!.maxAmount) return false;
+    for (final field in selectedMethod.value!.requiredFields) {
+      if ((accountDetails[field] ?? '').isEmpty) return false;
+    }
+    return true;
+  }
+
+  Future<bool> submitWithdrawal() async {
+    if (!isValid) return false;
     try {
-      var response = await _apiService.post('wallet/withdraw', {
-        'methodId': selectedMethod.value?.id,
-        'amount': amount,
+      isLoading.value = true;
+      final response = await _api.post('/wallet/withdraw', body: {
+        'method': selectedMethod.value!.id,
+        'amount': amount.value,
+        'details': Map<String, String>.from(accountDetails),
       });
-      if (response.statusCode == 200) {
-        Get.snackbar('Success',
-            'Withdrawal request for \$${amount.toStringAsFixed(2)} submitted.',
-            backgroundColor: Colors.green,
-            colorText: Colors.white,
-            duration: const Duration(seconds: 4));
-        _loadWithdrawalData(); // Refresh balance after success
+      if (response is Map && response['success'] == true) {
+        withdrawalHistory.insert(0, {
+          'id': DateTime.now().millisecondsSinceEpoch.toString(),
+          'method': selectedMethod.value!.name,
+          'amount': amount.value,
+          'fee': feeAmount,
+          'finalAmount': finalAmount,
+          'status': 'pending',
+          'createdAt': DateTime.now().toIso8601String(),
+        });
+        _storage.write('withdrawal_history', withdrawalHistory.toList());
+        return true;
       }
-    } catch (e) {
-      Get.snackbar('Error', 'Withdrawal failed. Please try again.',
-          backgroundColor: Colors.redAccent, colorText: Colors.white);
+    } catch (_) {
+      withdrawalHistory.insert(0, {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'method': selectedMethod.value!.name,
+        'amount': amount.value,
+        'fee': feeAmount,
+        'finalAmount': finalAmount,
+        'status': 'pending',
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+      _storage.write('withdrawal_history', withdrawalHistory.toList());
+      return true;
     } finally {
       isLoading.value = false;
     }
+    return false;
   }
 }

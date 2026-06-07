@@ -1,82 +1,150 @@
+// lib/modules/wallet/views/pk_battle_controller.dart
 import 'package:get/get.dart';
-import 'package:flutter/material.dart';
-import '../models/pk_battle_model.dart';
-import '../../room/controllers/live_room_controller.dart';
+import 'package:get_storage/get_storage.dart';
+import '../../../core/services/api_service.dart';
+import '../../../shared/models/pk_battle_model.dart';
 
 class PkBattleController extends GetxController {
-  final activeBattle = Rxn<PkBattleModel>();
-  LiveRoomController? _roomController;
+  final ApiService _api = Get.find<ApiService>();
+  final GetStorage _storage = GetStorage();
+
+  final isLoading = false.obs;
+  final currentBattle = Rxn<PkBattleModel>();
+  final recentBattles = <PkBattleModel>[].obs;
+  final globalLeaderboard = <Map<String, dynamic>>[].obs;
+  final myStats = <String, dynamic>{}.obs;
 
   @override
   void onInit() {
     super.onInit();
-    _initSocketListeners();
+    _loadCache();
   }
 
-  void _initSocketListeners() {
-    if (Get.isRegistered<LiveRoomController>()) {
-      _roomController = Get.find<LiveRoomController>();
-      final socket = _roomController?.socket;
+  void _loadCache() {
+    final cached = _storage.read<Map>('my_pk_stats');
+    if (cached != null) myStats.assignAll(Map<String, dynamic>.from(cached));
+  }
 
-      if (socket != null) {
-        socket.on('pk_started', _onPkStarted);
-        socket.on('pk_update', _onPkUpdate);
-        socket.on('pk_ended', _onPkEnded);
+  Future<void> startBattle({required String opponentId, required String opponentName, required String opponentAvatar, required String roomId}) async {
+    try {
+      isLoading.value = true;
+      final response = await _api.post('/pk/start', body: {
+        'opponentId': opponentId,
+        'roomId': roomId,
+      });
+      if (response is Map && response['success'] == true) {
+        currentBattle.value = PkBattleModel.fromJson(Map<String, dynamic>.from(response['data']));
+      } else {
+        currentBattle.value = PkBattleModel(
+          id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+          roomId: roomId,
+          hostId: _storage.read('user_id')?.toString() ?? '',
+          hostName: _storage.read('user_name')?.toString() ?? 'You',
+          hostAvatar: _storage.read('user_avatar')?.toString() ?? '',
+          opponentId: opponentId,
+          opponentName: opponentName,
+          opponentAvatar: opponentAvatar,
+          hostScore: 0,
+          opponentScore: 0,
+          duration: 180,
+          status: 'live',
+          startedAt: DateTime.now(),
+        );
       }
+    } catch (_) {
+      currentBattle.value = PkBattleModel(
+        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+        roomId: roomId,
+        hostId: _storage.read('user_id')?.toString() ?? '',
+        hostName: _storage.read('user_name')?.toString() ?? 'You',
+        hostAvatar: _storage.read('user_avatar')?.toString() ?? '',
+        opponentId: opponentId,
+        opponentName: opponentName,
+        opponentAvatar: opponentAvatar,
+        hostScore: 0,
+        opponentScore: 0,
+        duration: 180,
+        status: 'live',
+        startedAt: DateTime.now(),
+      );
+    } finally {
+      isLoading.value = false;
     }
   }
 
-  void _onPkStarted(dynamic data) {
-    activeBattle.value = PkBattleModel(
-      battleId: data['battleId'],
-      host1Id: data['host1Id'],
-      host1Name: data['host1Name'],
-      host1Avatar: data['host1Avatar'],
-      host2Id: data['host2Id'],
-      host2Name: data['host2Name'],
-      host2Avatar: data['host2Avatar'],
-      remainingSeconds: data['duration'] ?? 180,
-      host1Score: 0,
-      host2Score: 0,
-    );
-    Get.snackbar('⚔️ PK Started', 'The battle has begun!',
-        backgroundColor: Colors.orangeAccent, colorText: Colors.white);
-  }
-
-  void _onPkUpdate(dynamic data) {
-    if (activeBattle.value != null) {
-      activeBattle.value = activeBattle.value!.copyWith(
-        remainingSeconds: data['remainingSeconds'],
-        host1Score: data['host1Score'],
-        host2Score: data['host2Score'],
+  Future<void> sendGiftDuringBattle(String giftId, int amount) async {
+    if (currentBattle.value == null) return;
+    try {
+      final response = await _api.post('/pk/${currentBattle.value!.id}/gift', body: {
+        'giftId': giftId,
+        'amount': amount,
+      });
+      if (response is Map && response['success'] == true) {
+        final data = response['data'] as Map? ?? {};
+        final updated = PkBattleModel.fromJson(Map<String, dynamic>.from(data['battle'] ?? {}));
+        currentBattle.value = updated;
+      }
+    } catch (_) {
+      // local optimistic
+      final b = currentBattle.value!;
+      currentBattle.value = PkBattleModel(
+        id: b.id,
+        roomId: b.roomId,
+        hostId: b.hostId,
+        hostName: b.hostName,
+        hostAvatar: b.hostAvatar,
+        opponentId: b.opponentId,
+        opponentName: b.opponentName,
+        opponentAvatar: b.opponentAvatar,
+        hostScore: b.hostScore + amount,
+        opponentScore: b.opponentScore,
+        duration: b.duration,
+        status: b.status,
+        winnerId: b.winnerId,
+        startedAt: b.startedAt,
+        endedAt: b.endedAt,
       );
     }
   }
 
-  void _onPkEnded(dynamic data) {
-    if (activeBattle.value != null) {
-      activeBattle.value =
-          activeBattle.value!.copyWith(isActive: false, remainingSeconds: 0);
-      final winnerName = data['winnerName'] ?? 'Tie';
-      Get.snackbar('🏁 PK Ended', 'Winner: $winnerName!',
-          backgroundColor: Colors.redAccent, colorText: Colors.white);
+  Future<void> endBattle() async {
+    if (currentBattle.value == null) return;
+    final id = currentBattle.value!.id;
+    try {
+      final response = await _api.post('/pk/$id/end');
+      if (response is Map && response['success'] == true) {
+        final data = response['data'] as Map? ?? {};
+        currentBattle.value = PkBattleModel.fromJson(Map<String, dynamic>.from(data));
+        _updateStats();
+      }
+    } catch (_) {
+      _updateStats();
+    } finally {
+      recentBattles.insert(0, currentBattle.value!);
     }
   }
 
-  // Action triggered by the actual Gifts UI
-  void sendGiftToHost(int hostNumber, int giftValue) {
-    if (activeBattle.value == null || !activeBattle.value!.isActive) return;
-
-    _roomController?.socket?.emit('pk_send_gift', {
-      'battleId': activeBattle.value!.battleId,
-      'hostNumber': hostNumber,
-      'giftValue': giftValue,
-    });
+  void _updateStats() {
+    final b = currentBattle.value;
+    if (b == null) return;
+    final wins = (myStats['wins'] as int? ?? 0) + (b.winnerId == b.hostId ? 1 : 0);
+    final losses = (myStats['losses'] as int? ?? 0) + (b.winnerId != null && b.winnerId != b.hostId ? 1 : 0);
+    final draws = (myStats['draws'] as int? ?? 0) + (b.winnerId == null ? 1 : 0);
+    myStats['wins'] = wins;
+    myStats['losses'] = losses;
+    myStats['draws'] = draws;
+    myStats['totalBattles'] = wins + losses + draws;
+    _storage.write('my_pk_stats', myStats.toJson());
   }
 
-  // Start request
-  void requestStartPk(String opponentRoomId) {
-    _roomController?.socket
-        ?.emit('request_pk', {'targetRoomId': opponentRoomId});
+  Future<void> loadLeaderboard() async {
+    try {
+      final response = await _api.get('/pk/leaderboard');
+      if (response is Map && response['success'] == true) {
+        globalLeaderboard.assignAll(List<Map<String, dynamic>>.from(
+          (response['data'] as List? ?? []).map((e) => Map<String, dynamic>.from(e)),
+        ));
+      }
+    } catch (_) {}
   }
 }

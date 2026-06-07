@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Gift = require('../models/Gift');
 const GlobalSetting = require('../models/GlobalSetting');
+const Agency = require('../models/Agency');
 
 // Saare active gifts fetch karne ke liye (Flutter Store me dikhane ke liye)
 exports.getGifts = async (req, res) => {
@@ -36,12 +37,25 @@ exports.sendGift = async (req, res) => {
     // Get System Settings for Commission Tax
     const settings = await GlobalSetting.findOne() || { giftCommission: 30 };
     const commissionRate = settings.giftCommission / 100;
-    // Deduced amount that host actually receives
-    const receiverCoins = Math.floor(gift.price * (1 - commissionRate));
+    const totalReceiverCoins = Math.floor(gift.price * (1 - commissionRate));
+
+    // --- COMMISSION ENGINE: Agency Split ---
+    let finalHostCoins = totalReceiverCoins;
+    
+    if (receiver.agencyId) {
+      const agency = await Agency.findById(receiver.agencyId);
+      if (agency) {
+        // Example: Agency gets 10% of the host's earnings
+        const agencyCommission = Math.floor(totalReceiverCoins * 0.10);
+        finalHostCoins = totalReceiverCoins - agencyCommission;
+        agency.earnings = (agency.earnings || 0) + agencyCommission;
+        await agency.save();
+      }
+    }
 
     // 1. Transaction: Sender se Diamonds kato, Receiver ko Coins do
     sender.diamonds -= gift.price;
-    receiver.coins += receiverCoins;
+    receiver.coins += finalHostCoins;
 
     await sender.save();
     await receiver.save();

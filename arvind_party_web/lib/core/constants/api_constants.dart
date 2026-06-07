@@ -5,6 +5,8 @@ class ApiConstants {
   static const String apiBaseUrl = '$baseUrl/api';
   static const String socketUrl  = baseUrl;
 
+  static const String adminBaseUrl = '$apiBaseUrl/admin';
+
   // Admin panel ke liye secret key (server se match honi chahiye)
   static const String adminKey   = 'arvind_admin_2024';
 }

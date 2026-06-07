@@ -31,13 +31,13 @@ exports.getWithdrawals = async (req, res) => {
 exports.processWithdrawal = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // 'APPROVED' or 'REJECTED'
+    const { status } = req.body; // 'approved' or 'rejected'
     
     const withdrawal = await Withdrawal.findById(id);
     if (!withdrawal) return res.status(404).json({ success: false, message: 'Withdrawal request not found' });
-    if (withdrawal.status !== 'PENDING') return res.status(400).json({ success: false, message: 'Request already processed' });
+    if (withdrawal.status !== 'pending') return res.status(400).json({ success: false, message: 'Request already processed' });
 
-    if (status === 'REJECTED') {
+    if (status === 'rejected') {
       const user = await User.findById(withdrawal.userId);
       if (user) { user.coins += withdrawal.coinsDeducted; await user.save(); } // Refund on rejection
     }

@@ -12,6 +12,10 @@ const userSchema = new mongoose.Schema({
   diamonds: { type: Number, default: 0 },
   coins: { type: Number, default: 0 },
   vipLevel: { type: Number, default: 0 },
+  level: { type: Number, default: 1 },
+  badges: { type: [String], default: [] }, // List of badge IDs
+  equippedFrame: { type: String, default: 'f1' }, // Currently equipped frame
+  unlockedFrames: { type: [String], default: ['f1'] }, // List of unlocked frame IDs
   followersCount: { type: Number, default: 0 },
   followingCount: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },

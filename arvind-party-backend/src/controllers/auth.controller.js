@@ -4,6 +4,56 @@ const jwt = require('jsonwebtoken');
 // Temporary in-memory OTP store (In Production, use Redis)
 const otpStore = new Map();
 
+exports.login = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+    if (!phone || !otp) return res.status(400).json({ message: 'Phone and OTP are required' });
+
+    const storedOtp = otpStore.get(phone);
+    if (!storedOtp || storedOtp !== otp) {
+      return res.status(401).json({ message: 'Invalid OTP' });
+    }
+
+    // Find or create user
+    let user = await User.findOne({ phone });
+    if (!user) {
+      user = new User({
+        uid: `phone_${phone}`,
+        provider: 'phone',
+        phone: phone,
+        name: `User ${phone.slice(-4)}`,
+        arvindId: Math.floor(10000000 + Math.random() * 90000000).toString()
+      });
+      await user.save();
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user._id, phone: user.phone },
+      process.env.JWT_SECRET || 'arvind-party-secret',
+      { expiresIn: '30d' }
+    );
+
+    otpStore.delete(phone); // Clear OTP after successful login
+
+    res.status(200).json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        phone: user.phone,
+        arvindId: user.arvindId,
+        avatar: user.avatar,
+        isProfileComplete: user.isProfileComplete
+      }
+    });
+  } catch (error) {
+    console.error('Login Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
 exports.sendOtp = async (req, res) => {
   try {
     const { phone } = req.body;
