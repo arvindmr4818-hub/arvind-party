@@ -22,7 +22,7 @@ class YoutubeScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Player Area
+          // Player Screen Display View Frame
           Obx(() {
             final video = controller.currentVideo.value;
             if (video == null) {
@@ -47,14 +47,15 @@ class YoutubeScreen extends StatelessWidget {
               width: double.infinity,
               color: Colors.black,
               alignment: Alignment.center,
-              // TODO: Replace this container with actual YoutubePlayer widget
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Image.network(video.thumbnail,
+                  // ✅ FIX 2: Corrected item.thumbnail to item.thumbnailUrl to match model definition
+                  Image.network(video.thumbnailUrl.isNotEmpty ? video.thumbnailUrl : 'https://via.placeholder.com/640x360',
                       width: double.infinity,
                       height: double.infinity,
                       fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) => const Icon(Icons.broken_image, color: Colors.white24, size: 40),
                       opacity: const AlwaysStoppedAnimation(0.5)),
                   const Icon(Icons.play_circle_fill,
                       color: Colors.redAccent, size: 64),
@@ -72,9 +73,18 @@ class YoutubeScreen extends StatelessWidget {
 
           const Divider(color: Colors.white12, height: 1),
 
-          // Video List
+          // Real Catalog Video List Streams
           Expanded(
-            child: Obx(() => ListView.builder(
+            child: Obx(() {
+              if (controller.isLoading.value && controller.videos.isEmpty) {
+                return const Center(child: CircularProgressIndicator(color: Color(0xFFFF8906)));
+              }
+
+              if (controller.videos.isEmpty) {
+                return const Center(child: Text('No watch party videos found', style: TextStyle(color: Colors.white38)));
+              }
+
+              return ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: controller.videos.length,
                 itemBuilder: (context, index) {
@@ -83,19 +93,24 @@ class YoutubeScreen extends StatelessWidget {
                     contentPadding: const EdgeInsets.only(bottom: 16),
                     leading: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(v.thumbnail,
-                            width: 100, height: 60, fit: BoxFit.cover)),
+                        // ✅ FIX 3: Corrected v.thumbnail to v.thumbnailUrl here as well
+                        child: Image.network(v.thumbnailUrl.isNotEmpty ? v.thumbnailUrl : 'https://via.placeholder.com/100x60',
+                            width: 100, height: 60, fit: BoxFit.cover,
+                            errorBuilder: (c, e, s) => Container(width: 100, height: 60, color: Colors.white10, child: const Icon(Icons.broken_image, color: Colors.white24, size: 20)),
+                        )),
                     title: Text(v.title,
                         style: const TextStyle(
                             color: Colors.white, fontWeight: FontWeight.bold)),
-                    subtitle: const Text('YouTube',
-                        style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    subtitle: Text(v.channelTitle.isNotEmpty ? v.channelTitle : 'YouTube Stream',
+                        style: const TextStyle(color: Colors.white54, fontSize: 12)),
                     trailing: IconButton(
                         icon: const Icon(Icons.play_arrow,
                             color: Color(0xFFFF8906)),
                         onPressed: () => controller.playVideo(v)),
                   );
-                })),
+                },
+              );
+            }),
           ),
         ],
       ),

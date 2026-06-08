@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
-import '../models/room_model.dart';
+import '../models/room_models.dart';
 import '../models/seat_model.dart';
 import '../models/room_member_model.dart';
 import '../models/room_permission_model.dart';

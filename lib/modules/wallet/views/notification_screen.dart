@@ -28,12 +28,13 @@ class NotificationScreen extends StatelessWidget {
         ],
       ),
       body: Obx(() {
-        if (controller.isLoading.value) {
+        if (controller.isLoading.value && controller.filteredNotifications.isEmpty) {
           return const Center(
               child: CircularProgressIndicator(color: Color(0xFFFF8906)));
         }
 
-        if (controller.notifications.isEmpty) {
+        // Real Empty State with no static fallback leaks
+        if (controller.filteredNotifications.isEmpty) {
           return const Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -48,9 +49,9 @@ class NotificationScreen extends StatelessWidget {
         }
 
         return ListView.builder(
-          itemCount: controller.notifications.length,
+          itemCount: controller.filteredNotifications.length,
           itemBuilder: (context, index) {
-            final notif = controller.notifications[index];
+            final notif = controller.filteredNotifications[index];
 
             IconData iconData;
             Color iconColor;
@@ -78,19 +79,19 @@ class NotificationScreen extends StatelessWidget {
               child: Container(
                 color: notif.isRead
                     ? Colors.transparent
-                    : const Color(0xFFFF8906).withOpacity(0.05),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    : const Color(0xFFFF8906).withValues(alpha: 0.05), // Modern color convention
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (notif.avatarUrl != null)
+                    // ✅ FIX 1: Pointed to senderAvatar instead of avatarUrl
+                    if (notif.senderAvatar != null && notif.senderAvatar!.isNotEmpty)
                       CircleAvatar(
-                          backgroundImage: NetworkImage(notif.avatarUrl!),
+                          backgroundImage: NetworkImage(notif.senderAvatar!),
                           radius: 24)
                     else
                       CircleAvatar(
-                          backgroundColor: iconColor.withOpacity(0.2),
+                          backgroundColor: iconColor.withValues(alpha: 0.2),
                           radius: 24,
                           child: Icon(iconData, color: iconColor)),
                     const SizedBox(width: 16),
@@ -109,13 +110,15 @@ class NotificationScreen extends StatelessWidget {
                                               ? FontWeight.normal
                                               : FontWeight.bold,
                                           fontSize: 16))),
-                              Text(_timeAgo(notif.timestamp),
+                              // ✅ FIX 2: Pointed to createdAt instead of timestamp
+                              Text(_timeAgo(notif.createdAt),
                                   style: const TextStyle(
                                       color: Colors.white38, fontSize: 12)),
                             ],
                           ),
                           const SizedBox(height: 4),
-                          Text(notif.message,
+                          // ✅ FIX 3: Pointed to body instead of message
+                          Text(notif.body,
                               style: TextStyle(
                                   color: notif.isRead
                                       ? Colors.white54

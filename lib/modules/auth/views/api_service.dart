@@ -47,11 +47,11 @@ class ApiService extends GetxService {
   // ==========================================
   // CORE HTTP METHODS
   // ==========================================
-  Future<Response> post(String path, Map<String, dynamic> data) async {
+  Future post(String path, Map<String, dynamic> data) async {
     return await _dio.post(path, data: data);
   }
 
-  Future<Response> get(String path,
+  Future get(String path,
       {Map<String, dynamic>? queryParameters}) async {
     return await _dio.get(path, queryParameters: queryParameters);
   }

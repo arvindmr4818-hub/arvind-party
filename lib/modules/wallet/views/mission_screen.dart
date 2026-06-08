@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'mission_controller.dart';
+import '../controllers/mission_controller.dart';
 
 class MissionScreen extends StatelessWidget {
   const MissionScreen({super.key});

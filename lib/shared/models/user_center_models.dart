@@ -1,4 +1,3 @@
-// lib/shared/models/user_center_models.dart
 class UserLevelInfo {
   final int level;
   final String title;
@@ -28,6 +27,15 @@ class UserLevelInfo {
       totalXp: json['totalXp'] is int ? json['totalXp'] : int.tryParse(json['totalXp']?.toString() ?? '0') ?? 0,
     );
   }
+
+  // ✅ FIX: Added toJson serialization mapping required by GetStorage dynamic cache
+  Map<String, dynamic> toJson() => {
+        'level': level,
+        'title': title,
+        'currentXp': currentXp,
+        'nextLevelXp': nextLevelXp,
+        'totalXp': totalXp,
+      };
 
   UserLevelInfo copyWith({int? level, String? title, int? currentXp, int? nextLevelXp, int? totalXp}) {
     return UserLevelInfo(
@@ -69,6 +77,16 @@ class AppBadge {
       unlockedAt: json['unlockedAt'] != null ? DateTime.tryParse(json['unlockedAt'].toString()) : null,
     );
   }
+
+  // ✅ FIX: Added toJson serialization mapping
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'description': description,
+        'iconUrl': iconUrl,
+        'rarity': rarity,
+        'unlockedAt': unlockedAt?.toIso8601String(),
+      };
 }
 
 class AvatarFrame {
@@ -113,4 +131,15 @@ class AvatarFrame {
       isEquipped: json['isEquipped'] is bool ? json['isEquipped'] : false,
     );
   }
+
+  // ✅ FIX: Added toJson serialization mapping required by storage matrix arrays
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'imageUrl': imageUrl,
+        'priceCoins': priceCoins,
+        'isVipOnly': isVipOnly,
+        'isOwned': isOwned,
+        'isEquipped': isEquipped,
+      };
 }

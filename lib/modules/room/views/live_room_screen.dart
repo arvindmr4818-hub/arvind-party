@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import '../controllers/live_room_controller.dart';
 import '../models/room_models.dart';
 
@@ -10,9 +11,13 @@ class LiveRoomScreen extends StatelessWidget {
   final TextEditingController chatController = TextEditingController();
 
   LiveRoomScreen({super.key, required this.room}) {
-    // Initialize the real-time socket controller for this specific room
-    controller = Get.put(
-        LiveRoomController(roomId: room['_id'] ?? room['id'] ?? 'unknown'));
+    final String ownerId = room['ownerId'] != null && room['ownerId'] is Map
+        ? (room['ownerId']['_id'] ?? room['ownerId']['userId'] ?? '')
+        : (room['ownerId']?.toString() ?? '');
+
+    controller = Get.put(LiveRoomController(
+        roomId: room['_id'] ?? room['id'] ?? 'unknown',
+        roomOwnerId: ownerId));
   }
 
   @override
@@ -36,7 +41,7 @@ class LiveRoomScreen extends StatelessWidget {
 
             Column(
               children: [
-                _buildRoomHeader(),
+                _buildRoomHeader(context),
                 const SizedBox(height: 20),
                 _buildMicSeats(),
                 const Spacer(),
@@ -46,12 +51,9 @@ class LiveRoomScreen extends StatelessWidget {
             ),
 
             // Connection Status Overlay
-            Obx(() => controller.isConnected.value
-                ? const SizedBox.shrink()
-                : const Center(
-                    child: CircularProgressIndicator(color: Colors.amber))),
+            WidgetXConnectionOverlay(),
 
-            // Real-time Gift Animation Overlay
+            // Gift Animation Overlay
             _buildGiftAnimationOverlay(),
           ],
         ),
@@ -59,7 +61,18 @@ class LiveRoomScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRoomHeader() {
+  // Connection Overlay wrapped to avoid breaking build context
+  Widget WidgetXConnectionOverlay() {
+    return Obx(() => controller.isConnected.value
+        ? const SizedBox.shrink()
+        : const Center(
+            child: CircularProgressIndicator(color: Colors.cyanAccent)));
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // HEADER
+  // ══════════════════════════════════════════════════════════════
+  Widget _buildRoomHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Row(
@@ -69,9 +82,9 @@ class LiveRoomScreen extends StatelessWidget {
             onPressed: () => Get.back(),
           ),
           CircleAvatar(
-            backgroundImage: CachedNetworkImageProvider(room['ownerId']
-                    ?['avatar'] ??
-                'https://via.placeholder.com/150'),
+            backgroundImage: CachedNetworkImageProvider(
+                room['ownerId']?['avatar'] ??
+                    'https://via.placeholder.com/150'),
             radius: 20,
           ),
           const SizedBox(width: 10),
@@ -85,29 +98,42 @@ class LiveRoomScreen extends StatelessWidget {
                         fontSize: 16,
                         fontWeight: FontWeight.bold)),
                 Text('ID: ${room['roomId'] ?? '10000'}',
-                    style:
-                        const TextStyle(color: Colors.white54, fontSize: 12)),
+                    style: const TextStyle(
+                        color: Colors.white54, fontSize: 12)),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-                color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(20)),
             child: const Row(
               children: [
-                Icon(Icons.people, color: Colors.white, size: 16),
+                Icon(Icons.people, color: Colors.cyanAccent, size: 16),
                 SizedBox(width: 4),
                 Text('Live',
-                    style: TextStyle(color: Colors.white, fontSize: 12)),
+                    style:
+                        TextStyle(color: Colors.white, fontSize: 12)),
               ],
             ),
-          )
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white),
+            onPressed: () {
+              controller.fetchModerationList();
+              _showRoomSettingsBottomSheet(context);
+            },
+          ),
         ],
       ),
     );
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // MIC SEATS
+  // ══════════════════════════════════════════════════════════════
   Widget _buildMicSeats() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -120,38 +146,57 @@ class LiveRoomScreen extends StatelessWidget {
           crossAxisSpacing: 20,
           childAspectRatio: 0.8,
         ),
-        itemCount: 8, // Displaying 8 seats for the UI
+        itemCount: 8,
         itemBuilder: (context, index) {
           return Obx(() {
-            // Find if anyone is sitting in this specific seat index
-            final seat =
-                controller.seats.firstWhereOrNull((s) => s.seatIndex == index);
+            // Find seat if controller has seats list structure
+            final seat = controller.seats.firstWhereOrNull((s) => s.seatIndex == index);
 
             return GestureDetector(
-              onTap: () {
-                if (seat == null || seat.userId == null) {
-                  controller.claimSeat(index);
-                }
-              },
+              onTap: () => _handleSeatTap(seat, index),
               child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Colors.white10,
-                    backgroundImage: seat?.userAvatar != null
-                        ? CachedNetworkImageProvider(seat!.userAvatar!)
-                        : null,
-                    child: seat?.userId == null
-                        ? const Icon(Icons.add, color: Colors.white38)
-                        : null,
+                  Stack(
+                    children: [
+                      Container(
+                        width: 55,
+                        height: 55,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: seat != null ? Colors.cyanAccent : Colors.white24, width: 2),
+                          color: Colors.black38,
+                        ),
+                        child: Center(
+                          child: seat != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(25),
+                                  child: CachedNetworkImage(
+                                    imageUrl: seat.userAvatar ?? 'https://via.placeholder.com/150',
+                                    placeholder: (context, url) => const CircularProgressIndicator(),
+                                    errorWidget: (context, url, error) => const Icon(Icons.person, color: Colors.white),
+                                  ),
+                                )
+                              : const Icon(Icons.mic_none, color: Colors.white38),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                          child: Text('${index + 1}', style: const TextStyle(color: Colors.white, fontSize: 10)),
+                        ),
+                      )
+                    ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
-                    seat?.userName ?? 'Seat ${index + 1}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 10),
+                    seat != null ? (seat.userName ?? 'User') : 'Empty',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                  ),
+                    style: TextStyle(color: seat != null ? Colors.white : Colors.white38, fontSize: 11),
+                  )
                 ],
               ),
             );
@@ -161,210 +206,244 @@ class LiveRoomScreen extends StatelessWidget {
     );
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // LIVE CHAT STREAM LIST
+  // ══════════════════════════════════════════════════════════════
   Widget _buildChatList() {
-    return Container(
-      height: 250,
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Obx(() => ListView.builder(
-            reverse: true, // Auto-scroll to bottom
-            itemCount: controller.messages.length,
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: Obx(() {
+          return ListView.builder(
+            reverse: true,
+            itemCount: controller.chatMessages.length,
             itemBuilder: (context, index) {
-              final msg = controller.messages[index];
+              final msg = controller.chatMessages[controller.chatMessages.length - 1 - index];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${msg.senderName}: ',
-                        style: const TextStyle(
-                            color: Colors.amber, fontWeight: FontWeight.bold)),
-                    Expanded(
-                        child: Text(msg.message,
-                            style: const TextStyle(color: Colors.white))),
-                  ],
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${msg.senderName}: ',
+                        style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      TextSpan(
+                        text: msg.message ?? '',
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
-          )),
+          );
+        }),
+      ),
     );
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // BOTTOM ACTION CONTROLS
+  // ══════════════════════════════════════════════════════════════
   Widget _buildBottomControls(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      color: Colors.black26,
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: chatController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Say something...',
-                hintStyle: const TextStyle(color: Colors.white54),
-                filled: true,
-                fillColor: Colors.white10,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide.none,
-                ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                borderRadius: BorderRadius.circular(25),
               ),
-              onSubmitted: (text) {
-                controller.sendMessage(text);
-                chatController.clear();
-              },
+              child: TextField(
+                controller: chatController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: 'Say something beautiful...',
+                  hintStyle: TextStyle(color: Colors.white38),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: InputBorder.none,
+                ),
+                onSubmitted: (value) {
+                  if (value.trim().isNotEmpty) {
+                    controller.sendChatMessage(value.trim());
+                    chatController.clear();
+                  }
+                },
+              ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Obx(() => IconButton(
                 icon: Icon(
-                  controller.isMicMuted.value ? Icons.mic_off : Icons.mic,
-                  color: controller.isMicMuted.value
-                      ? Colors.redAccent
-                      : Colors.white,
+                  controller.isMuted.value ? Icons.mic_off : Icons.mic,
+                  color: controller.isMuted.value ? Colors.redAccent : Colors.white,
                 ),
-                onPressed: controller.toggleMic,
+                onPressed: () => controller.toggleMute(),
               )),
           IconButton(
-            icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent),
-            onPressed: () {
-              // Open the beautiful Gift BottomSheet UI
-              _showGiftBottomSheet(context);
-            },
+            icon: const Icon(Icons.card_giftcard, color: Colors.orangeAccent, size: 28),
+            onPressed: () => _showGiftSheet(context),
           ),
         ],
       ),
     );
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // SEAT TAP ACTION HANDLING
+  // ══════════════════════════════════════════════════════════════
+  void _handleSeatTap(dynamic seat, int index) {
+    if (seat == null) {
+      // Seat khali hai, toh join karne ka procedure call hoga
+      controller.joinSeat(index);
+    } else {
+      // Seat par koi baitha hai, uski user profile ya details bottom sheet dikhayenge
+      Get.bottomSheet(
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Color(0xFF1E1E1E),
+            borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(radius: 35, backgroundImage: CachedNetworkImageProvider(seat.userAvatar ?? '')),
+              const SizedBox(height: 10),
+              Text(seat.userName ?? 'User Name', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              if (controller.currentUserId == controller.roomOwnerId && seat.userId != controller.currentUserId)
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                  onPressed: () {
+                    controller.kickFromSeat(index);
+                    Get.back();
+                  },
+                  child: const Text('Kick From Seat'),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // GIFT ANIMATION OVERLAY
+  // ══════════════════════════════════════════════════════════════
   Widget _buildGiftAnimationOverlay() {
     return Obx(() {
-      final gift = controller.currentGift.value;
-      if (gift == null) return const SizedBox.shrink();
-
-      // Using Future.delayed to clear the gift from UI after 3 seconds
-      Future.delayed(const Duration(seconds: 3), () {
-        if (controller.currentGift.value == gift) {
-          controller.currentGift.value = null;
-        }
-      });
-
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CachedNetworkImage(
-              imageUrl: gift.giftImageUrl,
-              height: 200,
-              width: 200,
-              errorWidget: (context, url, error) => const Icon(
-                  Icons.card_giftcard,
-                  size: 100,
-                  color: Colors.pink),
-            ),
-            const SizedBox(height: 10),
-            Text('${gift.senderName} sent a Gift! x${gift.quantity}',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    shadows: [Shadow(color: Colors.pink, blurRadius: 10)])),
-          ],
+      if (controller.activeGiftAnimation.value == null) return const SizedBox.shrink();
+      return Positioned.fill(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.star, color: Colors.amber, size: 80), // Dynamic frame support can add custom lottie too
+              const SizedBox(height: 10),
+              Text(
+                '${controller.activeGiftAnimation.value!.senderName} sent a Gift!',
+                style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ),
       );
     });
   }
 
-  void _showGiftBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-        context: context,
-        backgroundColor: const Color(0xFF1E1E1E),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  // ══════════════════════════════════════════════════════════════
+  // BOTTOM SHEETS
+  // ══════════════════════════════════════════════════════════════
+  void _showRoomSettingsBottomSheet(BuildContext context) {
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
         ),
-        builder: (context) {
-          return Container(
-            padding: const EdgeInsets.all(16.0),
-            height: 350,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Send a Gift',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: Obx(() {
-                    if (controller.availableGifts.isEmpty) {
-                      return const Center(
-                          child: Text('No gifts available.',
-                              style: TextStyle(color: Colors.white54)));
-                    }
-                    return GridView.builder(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.75,
-                      ),
-                      itemCount: controller.availableGifts.length,
-                      itemBuilder: (context, index) {
-                        final gift = controller.availableGifts[index];
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.pop(context); // Close BottomSheet
-                            final receiverId = room['ownerId']?['_id'] ??
-                                room['ownerId']?['userId'] ??
-                                'unknown';
-                            controller.sendGift(
-                                receiverId, gift['_id'] as String,
-                                quantity: 1);
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                                color: Colors.white10,
-                                borderRadius: BorderRadius.circular(12)),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                CachedNetworkImage(
-                                  imageUrl: gift['iconUrl'] ?? '',
-                                  height: 40,
-                                  width: 40,
-                                  errorWidget: (c, u, e) => const Text('🎁',
-                                      style: TextStyle(fontSize: 32)),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(gift['name'] as String,
-                                    style: const TextStyle(
-                                        color: Colors.white, fontSize: 12)),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.diamond,
-                                        color: Colors.cyanAccent, size: 12),
-                                    const SizedBox(width: 2),
-                                    Text('${gift['price']}',
-                                        style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12)),
-                                  ],
-                                )
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  }),
-                ),
-              ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Room Settings Control', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const Divider(color: Colors.white24),
+            ListTile(
+              leading: const Icon(Icons.block, color: Colors.redAccent),
+              title: const Text('Banned Users List', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Get.back();
+                // Navigate to standard blocking list route
+              },
             ),
-          );
-        });
+            ListTile(
+              leading: const Icon(Icons.exit_to_app, color: Colors.orangeAccent),
+              title: const Text('Close Room Environment', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Get.back();
+                controller.closeRoomEnvironment();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showGiftSheet(BuildContext context) {
+    Get.bottomSheet(
+      Container(
+        height: 250,
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Send Elegant Gifts', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            Expanded(
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _giftItem('Rose', Icons.favorite, 10),
+                  _giftItem('Crown', Icons.workspace_premium, 100),
+                  _giftItem('Super Car', Icons.directions_car, 500),
+                ],
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _giftItem(String name, IconData icon, int price) {
+    return GestureDetector(
+      onTap: () {
+        controller.sendGiftToRoom(name, price);
+        Get.back();
+      },
+      child: Container(
+        width: 90,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15)),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.pinkAccent, size: 36),
+            const SizedBox(height: 4),
+            Text(name, style: const TextStyle(color: Colors.white, fontSize: 12)),
+            Text('$price Coins', style: const TextStyle(color: Colors.amber, fontSize: 10)),
+          ],
+        ),
+      ),
+    );
   }
 }

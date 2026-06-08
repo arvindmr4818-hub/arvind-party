@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'lucky_draw_controller.dart';
+import '../controllers/lucky_draw_controller.dart';
 
 class LuckyDrawScreen extends StatelessWidget {
   const LuckyDrawScreen({super.key});

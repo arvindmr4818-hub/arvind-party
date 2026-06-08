@@ -1,17 +1,17 @@
 // lib/modules/wallet/bindings/wallet_binding.dart
 import 'package:get/get.dart';
 import '../views/wallet_screen.dart';
-import '../views/mini_games_controller.dart';
-import '../views/pk_battle_controller.dart';
-import '../views/shop_controller.dart';
-import '../views/user_center_controller.dart';
-import '../views/search_controller.dart';
-import '../views/notification_controller.dart';
-import '../views/youtube_controller.dart';
-import '../views/withdrawal_controller.dart';
-import '../views/withdrawal_admin_controller.dart';
-import '../views/events_controller.dart';
-import '../views/audio_player_controller.dart';
+import '../controllers/mini_games_controller.dart';
+import '../controllers/pk_battle_controller.dart';
+import '../controllers/shop_controller.dart';
+import '../controllers/user_center_controller.dart';
+import '../controllers/search_controller.dart';
+import '../controllers/notification_controller.dart';
+import '../controllers/youtube_controller.dart';
+import '../controllers/withdrawal_controller.dart';
+import '../controllers/withdrawal_admin_controller.dart';
+import '../controllers/events_controller.dart';
+import '../controllers/audio_player_controller.dart';
 import '../../chat/controllers/chat_controller.dart';
 
 class WalletBinding extends Bindings {

@@ -1,10 +1,8 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../auth/views/api_service.dart';
-import '../../home/controllers/home_controller.dart';
+import 'package:cloudinary_public/cloudinary_public.dart';
+import '../../../core/services/api_service.dart';
 
 class CreateRoomController extends GetxController {
   final ApiService _apiService = Get.find<ApiService>();
@@ -12,50 +10,66 @@ class CreateRoomController extends GetxController {
 
   final TextEditingController nameController = TextEditingController();
   var isLoading = false.obs;
-  var coverBase64 = ''.obs;
   var selectedImagePath = ''.obs;
 
+  // 🖼️ Pick Room Cover from Gallery
   Future<void> pickImage() async {
     try {
       final XFile? image = await _picker.pickImage(
-          source: ImageSource.gallery, imageQuality: 60);
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
       if (image != null) {
         selectedImagePath.value = image.path;
-        final bytes = await File(image.path).readAsBytes();
-        coverBase64.value = 'data:image/jpeg;base64,${base64Encode(bytes)}';
       }
     } catch (e) {
       Get.snackbar('Error', 'Failed to pick image');
     }
   }
 
+  // 🚀 Upload to Cloudinary and Create Room on Backend
   Future<void> createRoom() async {
     String name = nameController.text.trim();
+    
     if (name.isEmpty) {
       Get.snackbar('Required', 'Please enter a room name');
       return;
     }
 
+    if (selectedImagePath.value.isEmpty) {
+      Get.snackbar('Required', 'Please select a cover image for the room.');
+      return;
+    }
+
     isLoading(true);
     try {
-      var response = await _apiService.post('rooms/create', {
+      // Real Cover Upload using Cloudinary
+      final cloudinary = CloudinaryPublic('YOUR_CLOUD_NAME', 'YOUR_UPLOAD_PRESET', cache: false);
+      
+      CloudinaryResponse cloudResponse = await cloudinary.uploadFile(
+        CloudinaryFile.fromFile(selectedImagePath.value, folder: 'room_covers'),
+      );
+      
+      String finalCoverUrl = cloudResponse.secureUrl;
+
+      // Connect to Arvind Party Node.js Backend
+      await _apiService.post('rooms/create', body: {
         'name': name,
-        'coverImage': coverBase64.value,
+        'coverImage': finalCoverUrl,
       });
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        Get.snackbar('Success', 'Room created successfully!');
-        if (Get.isRegistered<HomeController>()) {
-          Get.find<HomeController>().fetchLiveRooms(); // Instantly refresh Discovery Feed
-        }
-        Get.back(); // Return to Home Screen
-      } else {
-        Get.snackbar('Error', 'Could not create room');
-      }
+      Get.snackbar('Success', 'Live room created successfully! 🎉');
+      Get.back(); // Navigate back to the Home/Discover screen
     } catch (e) {
-      Get.snackbar('Server Error', 'Failed to connect to Arvind Party servers.');
+      Get.snackbar('Server Error', 'Failed to create room. Please try again.');
     } finally {
       isLoading(false);
     }
+  }
+
+  @override
+  void onClose() {
+    nameController.dispose();
+    super.onClose();
   }
 }

@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../room/models/room_models.dart';
 import '../../controllers/home_controller.dart';
 import '../../widgets/room_card_widget.dart';
 import '../../widgets/home_top_bar_widget.dart';
@@ -61,7 +62,7 @@ class DiscoverTab extends StatelessWidget {
                     ),
                     itemCount: ctrl.discoverRooms.length,
                     itemBuilder: (_, i) =>
-                        RoomCardWidget(room: ctrl.discoverRooms[i]),
+                        RoomCardWidget(room: RoomModel.fromJson(ctrl.discoverRooms[i])),
                   ),
                 );
               }),

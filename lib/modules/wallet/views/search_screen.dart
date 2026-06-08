@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'search_controller.dart';
+import '../controllers/search_controller.dart';
 
 class GlobalSearchScreen extends StatelessWidget {
   const GlobalSearchScreen({super.key});
@@ -21,22 +21,22 @@ class GlobalSearchScreen extends StatelessWidget {
           controller: controller.searchInput,
           style: const TextStyle(color: Colors.white),
           autofocus: true,
-          onSubmitted: controller.performSearch,
+          // ✅ FIX 1: Wrapped inside a string value parameter loop callback to fix argument signature mismatch
+          onSubmitted: (value) => controller.performSearch(),
           decoration: InputDecoration(
             hintText: 'Search ID, Username or Room...',
             hintStyle: const TextStyle(color: Colors.white38),
             border: InputBorder.none,
             suffixIcon: IconButton(
               icon: const Icon(Icons.search, color: Color(0xFFFF8906)),
-              onPressed: () =>
-                  controller.performSearch(controller.searchInput.text),
+              onPressed: () => controller.performSearch(),
             ),
           ),
         ),
       ),
       body: Column(
         children: [
-          // Tabs
+          // Dynamic Tab Streams Layout
           Row(
             children: [
               _buildTab(controller, 'user', 'Users'),
@@ -45,29 +45,39 @@ class GlobalSearchScreen extends StatelessWidget {
           ),
           const Divider(color: Colors.white12, height: 1),
 
-          // Results
+          // Database Results Frame
           Expanded(
             child: Obx(() {
               if (controller.isLoading.value) {
                 return const Center(
                     child: CircularProgressIndicator(color: Color(0xFFFF8906)));
               }
-              if (controller.results.isEmpty) {
+              
+              // Reading filtered state properties dynamically
+              final searchItems = controller.filteredResults;
+
+              if (searchItems.isEmpty) {
                 return const Center(
-                    child: Text('No results found',
+                    child: Text('No real matching index entries found',
                         style: TextStyle(color: Colors.white54)));
               }
 
               return ListView.builder(
-                itemCount: controller.results.length,
+                itemCount: searchItems.length,
                 itemBuilder: (context, index) {
-                  final item = controller.results[index];
+                  final item = searchItems[index];
+                  // ✅ FIX 2: Check status using your controller's dynamic reactive lookup mapping
+                  final isCurrentlyFollowing = controller.isFollowing(item.id);
+
                   return ListTile(
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     leading: CircleAvatar(
-                        backgroundImage: NetworkImage(item.imageUrl),
-                        radius: 25),
+                        backgroundColor: Colors.white10,
+                        backgroundImage: item.imageUrl.isNotEmpty ? NetworkImage(item.imageUrl) : null,
+                        radius: 25,
+                        child: item.imageUrl.isEmpty ? const Icon(Icons.person, color: Colors.white38) : null,
+                    ),
                     title: Text(item.title,
                         style: const TextStyle(
                             color: Colors.white, fontWeight: FontWeight.bold)),
@@ -75,15 +85,16 @@ class GlobalSearchScreen extends StatelessWidget {
                         style: const TextStyle(color: Colors.white54)),
                     trailing: item.type == 'user'
                         ? ElevatedButton(
-                            onPressed: () {},
+                            // ✅ FIX 3: Hooked into your actual backend relationship mutation API stream
+                            onPressed: () => controller.toggleFollow(item),
                             style: ElevatedButton.styleFrom(
-                                backgroundColor: item.isFollowing
+                                backgroundColor: isCurrentlyFollowing
                                     ? Colors.white10
                                     : const Color(0xFFFF8906),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(20))),
                             child: Text(
-                                item.isFollowing ? 'Following' : 'Follow',
+                                isCurrentlyFollowing ? 'Following' : 'Follow',
                                 style: const TextStyle(color: Colors.white)),
                           )
                         : const Icon(Icons.meeting_room,

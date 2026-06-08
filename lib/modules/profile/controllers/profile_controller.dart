@@ -11,13 +11,33 @@ class ProfileController extends GetxController {
   var isLoading = false.obs;
   var currentAgencyId = ''.obs;
 
+  // Profile data
+  final userName = 'User'.obs;
+  final userId = ''.obs;
+  final userLevel = 1.obs;
+  final isVip = false.obs;
+  final followers = 0.obs;
+  final following = 0.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    loadProfile();
+  }
+
+  Future<void> loadProfile() async {
+    final storage = GetStorage();
+    userName.value = storage.read('user_name') ?? 'User';
+    userId.value = storage.read('user_id') ?? '';
+  }
+
   Future<void> joinAgency() async {
     final agencyId = agencyIdController.text.trim();
     if (agencyId.isEmpty) return;
 
     isLoading.value = true;
     try {
-      final userId = GetStorage().read('user_id'); // From App auth
+      final userId = GetStorage().read('user_id');
 
       final data = await ApiClient().post('/app-users/join-agency', {
         'userId': userId,

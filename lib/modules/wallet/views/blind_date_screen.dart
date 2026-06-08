@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'blind_date_controller.dart';
+import '../controllers/blind_date_controller.dart';
 
 class BlindDateScreen extends StatelessWidget {
   const BlindDateScreen({super.key});

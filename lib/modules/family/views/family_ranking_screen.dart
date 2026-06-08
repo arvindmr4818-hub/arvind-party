@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controllers/family_controller.dart';
+import '../controllers/family_controller.dart' hide FamilyModel;
+import '../models/family_model.dart' as model;
 import '../widgets/family_rank_card.dart';
 
 class FamilyRankingScreen extends StatefulWidget {
@@ -22,7 +23,6 @@ class _FamilyRankingScreenState extends State<FamilyRankingScreen>
     _tabController = TabController(length: timelines.length, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
-        // Core structural logic allocation swap triggered smoothly
         controller.loadFamilyRankings(timelines[_tabController.index]);
       }
     });
@@ -90,8 +90,24 @@ class _FamilyRankingScreenState extends State<FamilyRankingScreen>
         itemCount: controller.globalFamilyRankings.length,
         itemBuilder: (context, index) {
           final clanData = controller.globalFamilyRankings[index];
+          final familyModel = model.FamilyModel(
+            id: clanData.id,
+            name: clanData.name,
+            logo: clanData.avatar,
+            banner: clanData.avatar,
+            description: clanData.description,
+            notice: '',
+            level: clanData.level,
+            points: clanData.totalCoins,
+            currentExp: 0,
+            nextLevelExp: 5000,
+            membersCount: clanData.memberCount,
+            maxMembersLimit: 100,
+            ownerId: clanData.ownerId,
+            ownerName: 'Leader',
+          );
           return FamilyRankCard(
-            family: clanData,
+            family: familyModel,
             rankPosition: index + 1,
           );
         },

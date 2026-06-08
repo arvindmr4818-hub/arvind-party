@@ -7,15 +7,14 @@ class RoomInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final RoomSettingsController controller =
-        Get.find<RoomSettingsController>();
+    final RoomSettingsController controller = Get.find<RoomSettingsController>();
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xff15141F),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.03), width: 1),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.03), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,9 +38,12 @@ class RoomInfoCard extends StatelessWidget {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
-                  image: DecorationImage(
-                      image: NetworkImage(controller.roomBanner.value),
-                      fit: BoxFit.cover),
+                  image: controller.roomBanner.value.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(controller.roomBanner.value),
+                          fit: BoxFit.cover)
+                      : null,
+                  color: const Color(0xff0F0E17),
                 ),
                 child: Container(
                   decoration: BoxDecoration(
@@ -50,11 +52,8 @@ class RoomInfoCard extends StatelessWidget {
                   ),
                   child: Center(
                     child: TextButton.icon(
-                      onPressed: () {
-                        // Future: Asset image picker flow attachment pipeline
-                        controller.updateBanner(
-                            "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&q=80");
-                      },
+                      onPressed: () => controller.updateBanner(
+                          "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&q=80"),
                       icon: const Icon(Icons.camera_enhance_outlined,
                           color: Colors.white, size: 18),
                       label: const Text("Replace Backdrop",
@@ -70,22 +69,25 @@ class RoomInfoCard extends StatelessWidget {
 
           // 2. Room Name Form Field
           _buildFieldLabel("Room Title Name"),
-          TextFormField(
-            initialValue: controller.roomName.value,
-            onChanged: controller.updateRoomName,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            decoration: _inputDecoration("Edit room title..."),
-          ),
+          Obx(() => TextFormField(
+                // Key is added so that GetX updates initialValue dynamically
+                key: ValueKey(controller.roomName.value),
+                initialValue: controller.roomName.value,
+                onChanged: controller.updateRoomName,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: _inputDecoration("Edit room title..."),
+              )),
           const SizedBox(height: 14),
 
           // 3. Room Tagline Topic Form Field
           _buildFieldLabel("Room Theme Topic Tagline"),
-          TextFormField(
-            initialValue: controller.roomTopic.value,
-            onChanged: controller.updateTopic,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            decoration: _inputDecoration("Edit dynamic status..."),
-          ),
+          Obx(() => TextFormField(
+                key: ValueKey(controller.roomTopic.value),
+                initialValue: controller.roomTopic.value,
+                onChanged: controller.updateTopic,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: _inputDecoration("Edit dynamic status..."),
+              )),
         ],
       ),
     );

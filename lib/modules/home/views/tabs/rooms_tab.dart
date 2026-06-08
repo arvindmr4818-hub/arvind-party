@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../room/models/room_models.dart';
 import '../../controllers/home_controller.dart';
 import '../../widgets/room_list_tile_widget.dart';
 import '../../../../routes/app_routes.dart';
@@ -54,7 +55,7 @@ class RoomsTab extends StatelessWidget {
                     itemCount: ctrl.liveRooms.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (_, i) =>
-                        RoomListTileWidget(room: ctrl.liveRooms[i]),
+                        RoomListTileWidget(room: RoomModel.fromJson(ctrl.liveRooms[i])),
                   ),
                 );
               }),

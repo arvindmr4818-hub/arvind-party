@@ -20,7 +20,7 @@ class _WithdrawalManagementViewState extends State<WithdrawalManagementView> {
   }
 
   Color _getStatusColor(String status) {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'approved':
       case 'completed':
         return Colors.green;
@@ -41,7 +41,7 @@ class _WithdrawalManagementViewState extends State<WithdrawalManagementView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // HEADER
+            // HEADER PANEL
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -54,7 +54,8 @@ class _WithdrawalManagementViewState extends State<WithdrawalManagementView> {
                   ),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => controller.loadWithdrawals(),
+                  // ✅ FIX 1: Pointed to real loadRequests method
+                  onPressed: () => controller.loadRequests(),
                   icon: const Icon(Icons.refresh, color: Colors.white),
                   label: const Text('Refresh',
                       style: TextStyle(color: Colors.white)),
@@ -72,18 +73,18 @@ class _WithdrawalManagementViewState extends State<WithdrawalManagementView> {
             ),
             const SizedBox(height: 24),
 
-            // DATA TABLE
+            // DATA LEDGER TABLE
             Expanded(
               child: Obx(() {
-                if (controller.isLoading.value) {
+                if (controller.isLoading.value && controller.pendingRequests.isEmpty) {
                   return const Center(
-                      child:
-                          CircularProgressIndicator(color: Color(0xFFFF8906)));
+                      child: CircularProgressIndicator(color: Color(0xFFFF8906)));
                 }
 
-                if (controller.withdrawals.isEmpty) {
+                // ✅ FIX 2: Pointed to real pendingRequests variable list array stream
+                if (controller.pendingRequests.isEmpty) {
                   return const Center(
-                      child: Text('No withdrawal requests found.',
+                      child: Text('No pending withdrawal logs fetched.',
                           style: TextStyle(color: Colors.white54)));
                 }
 
@@ -91,7 +92,7 @@ class _WithdrawalManagementViewState extends State<WithdrawalManagementView> {
                   child: Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: DataTable(
@@ -125,94 +126,107 @@ class _WithdrawalManagementViewState extends State<WithdrawalManagementView> {
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFFFF8906)))),
                       ],
-                      rows: controller.withdrawals.map((item) {
-                        final id = item['_id'] ?? item['id'];
-                        final user = item['userId'] ?? {};
-                        final status = item['status'] ?? 'pending';
-                        final isPending = status == 'pending';
+                      // ✅ FIX 3: Iterating directly over real pendingRequests data stream entries
+                      rows: controller.pendingRequests.map((item) {
+                        final id = (item['id'] ?? item['_id'] ?? '').toString();
+                        final String userName = (item['userName'] ?? 'Unknown User').toString();
+                        final String methodType = (item['method'] ?? 'Payout').toString();
+                        final status = (item['status'] ?? 'pending').toString();
+                        final isPending = status.toLowerCase() == 'pending';
+                        
+                        // Parse account details dictionary attributes securely
+                        String detailsText = 'N/A';
+                        if (item['details'] is Map) {
+                          final detailsMap = item['details'] as Map;
+                          if (detailsMap.containsKey('upiId')) {
+                            detailsText = 'UPI: ${detailsMap['upiId']}';
+                          } else if (detailsMap.containsKey('accountNumber')) {
+                            detailsText = 'A/C: ${detailsMap['accountNumber']} • IFSC: ${detailsMap['ifsc'] ?? ''}';
+                          } else if (detailsMap.containsKey('email')) {
+                            detailsText = 'PayPal: ${detailsMap['email']}';
+                          } else if (detailsMap.containsKey('phone')) {
+                            detailsText = 'Phone: ${detailsMap['phone']}';
+                          }
+                        }
 
                         return DataRow(
                           cells: [
-                            // USER DETAILS
+                            // 1. USER PANEL
                             DataCell(
                               Row(
                                 children: [
-                                  CircleAvatar(
-                                    backgroundImage: NetworkImage(
-                                        user['avatar'] ??
-                                            'https://via.placeholder.com/150'),
+                                  const CircleAvatar(
+                                    backgroundColor: Colors.white10,
                                     radius: 16,
+                                    child: Icon(Icons.person, size: 16, color: Colors.white38),
                                   ),
                                   const SizedBox(width: 8),
-                                  Text(user['name'] ?? 'Unknown User',
+                                  Text(userName,
                                       style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold)),
                                 ],
                               ),
                             ),
-                            // AMOUNT
+                            
+                            // 2. TOKEN VALUE AMOUNTS
+                            DataCell(
+                              Text('🪙 ${item['amount'] ?? 0} Beans',
+                                  style: const TextStyle(
+                                      color: Colors.greenAccent,
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                            
+                            // 3. PAYMENT GATEWAY CREDENTIALS DATA RENDERER
                             DataCell(
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text(
-                                      '\$${item['amountUSD']?.toStringAsFixed(2) ?? '0.00'}',
-                                      style: const TextStyle(
-                                          color: Colors.greenAccent,
-                                          fontWeight: FontWeight.bold)),
-                                  Text('🪙 ${item['coinsDeducted'] ?? 0}',
-                                      style: const TextStyle(
-                                          color: Colors.white54, fontSize: 12)),
+                                  Text(methodType, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                                  Text(detailsText, style: const TextStyle(color: Colors.white38, fontSize: 11)),
                                 ],
                               ),
                             ),
-                            // PAYMENT INFO
-                            DataCell(Text(item['paymentDetails'] ?? 'N/A',
-                                style: const TextStyle(color: Colors.white70))),
-                            // STATUS
+                            
+                            // 4. MANAGEMENT LEDGER STATE STATUS
                             DataCell(
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color:
-                                      _getStatusColor(status).withOpacity(0.2),
+                                  color: _getStatusColor(status).withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   status.toUpperCase(),
                                   style: TextStyle(
                                       color: _getStatusColor(status),
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ),
-                            // ACTIONS
+                            
+                            // 5. ADMINISTRATIVE MUTATION EVENTS ACTION BOX
                             DataCell(
                               isPending
                                   ? Row(
                                       children: [
                                         IconButton(
-                                          icon: const Icon(Icons.check_circle,
-                                              color: Colors.green),
-                                          onPressed: () => controller
-                                              .updateStatus(id, 'approved'),
-                                          tooltip: 'Approve',
+                                          icon: const Icon(Icons.check_circle, color: Colors.green),
+                                          // ✅ FIX 4: Hooked to real approveRequest method pipeline logic
+                                          onPressed: () => controller.approveRequest(id),
+                                          tooltip: 'Approve Payout Transaction',
                                         ),
                                         IconButton(
-                                          icon: const Icon(Icons.cancel,
-                                              color: Colors.redAccent),
-                                          onPressed: () => controller
-                                              .updateStatus(id, 'rejected'),
-                                          tooltip: 'Reject & Refund',
+                                          icon: const Icon(Icons.cancel, color: Colors.redAccent),
+                                          // ✅ FIX 5: Hooked to real rejectRequest method pipeline logic with fallback audit reason text
+                                          onPressed: () => controller.rejectRequest(id, 'Admin Verification Disapproved Payout Audit'),
+                                          tooltip: 'Reject & Refund Tokens Ledger',
                                         ),
                                       ],
                                     )
-                                  : const Text('--',
-                                      style: TextStyle(color: Colors.white54)),
+                                  : const Text('--', style: TextStyle(color: Colors.white54)),
                             ),
                           ],
                         );
@@ -228,3 +242,5 @@ class _WithdrawalManagementViewState extends State<WithdrawalManagementView> {
     );
   }
 }
+    
+    

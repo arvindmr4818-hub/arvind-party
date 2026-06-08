@@ -1,6 +1,6 @@
 // lib/core/network/games_binding.dart
 import 'package:get/get.dart';
-import '../../modules/wallet/views/mini_games_controller.dart';
+import '../../modules/wallet/controllers/mini_games_controller.dart';
 
 class GamesBinding extends Bindings {
   @override

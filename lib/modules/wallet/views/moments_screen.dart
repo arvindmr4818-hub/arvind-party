@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'moments_controller.dart';
+import '../controllers/moments_controller.dart';
 
 class MomentsScreen extends StatelessWidget {
   const MomentsScreen({super.key});

@@ -16,7 +16,8 @@ class RoomSeatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xff15141F),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.03), width: 1),
+        // ✅ Fix 1
+        border: Border.all(color: Colors.white.withValues(alpha: 0.03), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -40,7 +41,6 @@ class RoomSeatCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // Horizontal grid choices loops mapping
           SizedBox(
             height: 38,
             child: ListView.builder(
@@ -69,9 +69,11 @@ class RoomSeatCard extends StatelessWidget {
                       side: BorderSide(
                           color: isSelected
                               ? const Color(0xffFF8906)
-                              : Colors.white.withOpacity(0.05)),
+                              // ✅ Fix 2
+                              : Colors.white.withValues(alpha: 0.05)),
+                      // ✅ Fix 3: changeSeatCount → updateSeatCount
                       onSelected: (selected) {
-                        if (selected) controller.changeSeatCount(count);
+                        if (selected) controller.updateSeatCount(count);
                       },
                     ),
                   );

@@ -15,7 +15,8 @@ class RoomWelcomeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xff15141F),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.03), width: 1),
+        // ✅ Fix 1
+        border: Border.all(color: Colors.white.withValues(alpha: 0.03), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -129,10 +129,10 @@ class _CreateFamilyScreenState extends State<CreateFamilyScreen> {
                               ? null
                               : () {
                                   if (_formKey.currentState!.validate()) {
-                                    controller.createNewFamily(
-                                      name: _nameController.text,
-                                      desc: _descController.text,
-                                    );
+                                      controller.createNewFamily2(
+                                        name: _nameController.text,
+                                        desc: _descController.text,
+                                      );
                                   }
                                 },
                           child: processing

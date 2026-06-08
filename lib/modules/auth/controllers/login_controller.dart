@@ -1,4 +1,3 @@
-// lib/modules/auth/controllers/login_controller.dart
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,17 +8,27 @@ class LoginController extends GetxController {
   final ApiService _api = Get.find<ApiService>();
   final GetStorage _storage = GetStorage();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   var isLoading = false.obs;
   var loadingMessage = ''.obs;
   var isTermsAccepted = false.obs;
 
+  @override
+  void onInit() {
+    super.onInit();
+    _initGoogleSignIn();
+  }
+
+  Future<void> _initGoogleSignIn() async {
+    try {
+      await GoogleSignIn.instance.initialize();
+    } catch (_) {}
+  }
+
   void toggleTerms() {
     isTermsAccepted.value = !isTermsAccepted.value;
   }
 
-  // Aliases for the view-layer methods
   Future<void> loginWithGoogle() => signInWithGoogle();
   Future<void> loginWithFacebook() => signInWithFacebook();
   Future<void> loginWithApple() => signInWithApple();
@@ -43,21 +52,22 @@ class LoginController extends GetxController {
     return true;
   }
 
-  /// Sign in with Google. Falls back to local demo account on error.
+  /// Sign in with Google.
   Future<void> signInWithGoogle() async {
     if (!_checkTerms()) return;
     try {
       isLoading.value = true;
       loadingMessage.value = 'Connecting to Google...';
-      final GoogleSignInAccount? account = await _googleSignIn.signIn();
+      
+      final GoogleSignInAccount? account = await GoogleSignIn.instance.authenticate();
+      
       if (account == null) {
         isLoading.value = false;
         return;
       }
       loadingMessage.value = 'Authenticating...';
-      final GoogleSignInAuthentication googleAuth = await account.authentication;
+      final GoogleSignInAuthentication googleAuth = account.authentication;
       final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
       final userCredential = await _auth.signInWithCredential(credential);
@@ -67,6 +77,7 @@ class LoginController extends GetxController {
         _storage.write('user_name', user.displayName ?? 'User');
         _storage.write('user_email', user.email ?? '');
         _storage.write('user_avatar', user.photoURL ?? '');
+        
         await _api.post('/auth/login', body: {
           'provider': 'google',
           'uid': user.uid,
@@ -74,6 +85,7 @@ class LoginController extends GetxController {
           'name': user.displayName,
           'avatar': user.photoURL,
         }).catchError((_) => null);
+        
         _api.saveToken(user.uid);
         Get.offAllNamed('/home');
       }
@@ -85,7 +97,6 @@ class LoginController extends GetxController {
     }
   }
 
-  /// Sign in with Facebook. Falls back to local demo account on error.
   Future<void> signInWithFacebook() async {
     if (!_checkTerms()) return;
     try {
@@ -100,7 +111,6 @@ class LoginController extends GetxController {
     }
   }
 
-  /// Sign in with Apple
   Future<void> signInWithApple() async {
     if (!_checkTerms()) return;
     try {
@@ -122,7 +132,6 @@ class LoginController extends GetxController {
     _createLocalUser('$provider User');
   }
 
-  /// Guest login for development
   Future<void> continueAsGuest() async {
     isLoading.value = true;
     loadingMessage.value = 'Setting up guest session...';

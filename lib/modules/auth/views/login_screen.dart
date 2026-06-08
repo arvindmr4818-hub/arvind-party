@@ -488,7 +488,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
 class _SocialButton extends StatelessWidget {
   final String label;
-  final IconData icon;
+  final dynamic icon;
   final Color color;
   final Color? textColor;
   final Color? iconColor;
@@ -502,6 +502,7 @@ class _SocialButton extends StatelessWidget {
     required this.icon,
     required this.color,
     this.textColor,
+    this.iconColor,
     this.fullWidth = false,
     this.isGoogle = false,
     this.iconSize = 18,
@@ -592,7 +593,7 @@ class _PhoneButton extends StatelessWidget {
 }
 
 class _IconOnlyButton extends StatelessWidget {
-  final IconData icon;
+  final dynamic icon;
   final Color color;
   final Color? iconColor;
   final Color borderColor;

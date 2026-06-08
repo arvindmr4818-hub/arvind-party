@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controllers/family_controller.dart';
+import '../controllers/family_controller.dart' hide FamilyMemberModel;
+import '../models/family_member_model.dart';
 import '../widgets/family_member_tile.dart';
 
 class FamilyMembersScreen extends StatelessWidget {
@@ -79,11 +80,23 @@ class FamilyMembersScreen extends StatelessWidget {
                       itemCount: controller.familyMembersList.length,
                       itemBuilder: (context, index) {
                         final member = controller.familyMembersList[index];
+                        final model = FamilyMemberModel(
+                          userId: member.userId,
+                          name: member.userName,
+                          avatar: member.avatar,
+                          userLevel: 1,
+                          role: FamilyRole.values.firstWhere(
+                            (e) => e.toString().split('.').last == member.role,
+                            orElse: () => FamilyRole.member,
+                          ),
+                          joinedAt: member.joinedAt,
+                          dynamicContribution: member.contribution,
+                        );
                         return FamilyMemberTile(
-                          member: member,
+                          member: model,
                           onKickPressed: () {
                             _confirmKickAction(context, controller,
-                                member.userId, member.name);
+                                member.userId, member.userName);
                           },
                         );
                       },

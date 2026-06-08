@@ -5,7 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../room/models/room_model.dart';
+import '../../room/models/room_models.dart';
 import '../../room/controllers/room_controller.dart';
 import '../../../../routes/app_routes.dart';
 

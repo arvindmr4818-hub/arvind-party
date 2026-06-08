@@ -20,6 +20,9 @@ import '../modules/profile/bindings/profile_binding.dart';
 import '../modules/wallet/views/wallet_screen.dart';
 import '../modules/wallet/bindings/wallet_binding.dart';
 
+// ✅ Added imports for withdrawal modules rendering loops
+import '../modules/wallet/views/withdrawal_management_view.dart'; 
+
 import '../modules/room/views/room_screen.dart';
 import '../modules/room/views/create_room_screen.dart';
 import '../modules/room/bindings/room_binding.dart';
@@ -35,23 +38,24 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.login,
-      page: () => const LoginScreen(),
+      // ✅ FIX: Removed const instantiation to prevent modern layout hierarchy compile mismatch
+      page: () => LoginScreen(),
       binding: AuthBinding(),
     ),
     GetPage(
       name: AppRoutes.phoneAuth,
-      page: () => const PhoneAuthScreen(),
+      page: () => PhoneAuthScreen(),
       binding: PhoneAuthBinding(),
       transition: Transition.rightToLeft,
     ),
     GetPage(
       name: AppRoutes.home,
-      page: () => const HomeScreen(),
+      page: () => HomeScreen(),
       binding: HomeBinding(),
     ),
     GetPage(
       name: AppRoutes.profile,
-      page: () => const ProfileScreen(),
+      page: () => ProfileScreen(),
       binding: ProfileBinding(),
     ),
     GetPage(
@@ -70,6 +74,13 @@ class AppPages {
       page: () => CreateRoomScreen(),
       binding: CreateRoomBinding(),
       transition: Transition.rightToLeft,
+    ),
+    
+    // 🛡️ LIVE ADMINISTRATIVE ROUTING INJECTION LINK
+    GetPage(
+      name: '/withdrawal-management', // Maps with your dashboard layout redirection pointers
+      page: () => const WithdrawalManagementView(),
+      transition: Transition.fadeIn,
     ),
   ];
 }
