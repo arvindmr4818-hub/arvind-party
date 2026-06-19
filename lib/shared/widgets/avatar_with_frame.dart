@@ -6,11 +6,11 @@ class AvatarWithFrame extends StatelessWidget {
   final double radius;
 
   const AvatarWithFrame({
-    Key? key,
+    super.key,
     required this.avatarUrl,
     this.frameUrl,
     this.radius = 30.0, // Default size
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

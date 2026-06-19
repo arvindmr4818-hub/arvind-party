@@ -1,7 +1,0 @@
-Resolving dependencies...
-Because arvind_party depends on cloudinary_flutter ^0.4.0 which doesn't match any versions, version solving failed.
-
-
-You can try the following suggestion to make the pubspec resolve:
-* Try an upgrade of your constraints: flutter pub upgrade --major-versions
-Failed to update packages.

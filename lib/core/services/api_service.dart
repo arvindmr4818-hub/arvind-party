@@ -1,14 +1,15 @@
 // lib/core/services/api_service.dart
 // Real API service for Arvind Party - connects to Node.js backend
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:get/get.dart' as getx;
-import 'package:get_storage/get_storage.dart';
 import '../constants/api_constants.dart';
+import 'auth_session_manager.dart';
 
 class ApiService extends getx.GetxService {
   late final Dio _dio;
-  final GetStorage _storage = GetStorage();
+
+  /// Convenience accessor for session manager
+  AuthSessionManager get _authSession => getx.Get.find<AuthSessionManager>();
 
   ApiService() {
     _dio = Dio(BaseOptions(
@@ -21,17 +22,33 @@ class ApiService extends getx.GetxService {
         'Accept': 'application/json',
       },
     ));
+  }
 
+  @override
+  void onInit() {
+    super.onInit();
+    _setupInterceptors();
+  }
+
+  void _setupInterceptors() {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        final token = _storage.read('auth_token') ?? _storage.read('staff_token');
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
+        try {
+          final token = getx.Get.find<AuthSessionManager>().token;
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+        } catch (_) {
+          // AuthSessionManager might not be ready yet
         }
         return handler.next(options);
       },
       onError: (error, handler) {
-        // Log error but don't block
+        if (error.response?.statusCode == 401) {
+          try {
+            getx.Get.find<AuthSessionManager>().clearSession();
+          } catch (_) {}
+        }
         return handler.next(error);
       },
     ));
@@ -41,20 +58,19 @@ class ApiService extends getx.GetxService {
 
   // ===== TOKEN MANAGEMENT =====
   void saveToken(String token) {
-    _storage.write('auth_token', token);
+    _authSession.saveSession(token: token);
   }
 
   String? getToken() {
-    return _storage.read('auth_token');
+    return _authSession.token;
   }
 
   void clearToken() {
-    _storage.remove('auth_token');
-    _storage.remove('user_data');
+    _authSession.clearSession();
   }
 
   bool isLoggedIn() {
-    return _storage.read('auth_token') != null;
+    return _authSession.hasToken();
   }
 
   // ===== HTTP METHODS =====

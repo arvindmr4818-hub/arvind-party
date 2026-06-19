@@ -17,7 +17,7 @@ class BadgeModel {
 
   factory BadgeModel.fromJson(Map<String, dynamic> json) {
     return BadgeModel(
-      id: json['id'] ?? '',
+      id: (json['id'] ?? json['_id'] ?? '').toString(),
       name: json['name'] ?? '',
       iconUrl: json['iconUrl'] ?? '',
       description: json['description'] ?? '',
