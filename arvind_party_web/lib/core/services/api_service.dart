@@ -1,74 +1,132 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// SERVICE: ApiService — HTTP client for Web Panel to Node.js Backend
+// SERVICE: ApiService — HTTP client for Web Panel → Node.js Backend
+// All pages use this service to communicate with the backend
 // ═══════════════════════════════════════════════════════════════════════════
 
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'role_permission_service.dart';
+import 'package:http/http.dart' as http;
+import '../constants/env_config.dart';
 
 class ApiService extends GetxService {
   final _box = GetStorage();
-  final String _baseUrl;
 
-  ApiService({String? baseUrl}) : _baseUrl = baseUrl ?? 'http://localhost:5000/api';
+  String get _baseUrl =>
+      kDebugMode ? EnvConfig.devApiBaseUrl : EnvConfig.prodApiBaseUrl;
 
-  String? get token => _box.read('auth_token');
-  set token(String? value) {
-    if (value != null) {
-      _box.write('auth_token', value);
-    } else {
-      _box.remove('auth_token');
-    }
-  }
+  String? get _token => _box.read('auth_token');
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+        if (_token != null) 'Authorization': 'Bearer $_token',
       };
 
-  Map<String, dynamic> _parseResponse(http.Response response) {
+  // ─── GET ────────────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> get(String endpoint,
+      {Map<String, String>? queryParams}) async {
     try {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    } catch (_) {
-      return {'success': false, 'message': 'Invalid response format'};
+      final uri = Uri.parse('$_baseUrl$endpoint')
+          .replace(queryParameters: queryParams);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handle(response);
+    } catch (e) {
+      return _error(e);
     }
   }
 
-  Future<Map<String, dynamic>> get(String endpoint, {Map<String, String>? queryParams}) async {
-    final uri = Uri.parse('$_baseUrl$endpoint').replace(queryParameters: queryParams);
-    final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
-    _checkAuth(response);
-    return _parseResponse(response);
+  // ─── POST ───────────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> post(
+      String endpoint, Map<String, dynamic> body) async {
+    try {
+      final uri = Uri.parse('$_baseUrl$endpoint');
+      final response = await http
+          .post(uri, headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handle(response);
+    } catch (e) {
+      return _error(e);
+    }
   }
 
-  Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> body) async {
-    final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await http.post(uri, headers: _headers, body: jsonEncode(body)).timeout(const Duration(seconds: 30));
-    _checkAuth(response);
-    return _parseResponse(response);
+  // ─── PUT ────────────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> put(
+      String endpoint, Map<String, dynamic> body) async {
+    try {
+      final uri = Uri.parse('$_baseUrl$endpoint');
+      final response = await http
+          .put(uri, headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handle(response);
+    } catch (e) {
+      return _error(e);
+    }
   }
 
-  Future<Map<String, dynamic>> put(String endpoint, Map<String, dynamic> body) async {
-    final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await http.put(uri, headers: _headers, body: jsonEncode(body)).timeout(const Duration(seconds: 30));
-    _checkAuth(response);
-    return _parseResponse(response);
-  }
-
+  // ─── DELETE ─────────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> delete(String endpoint) async {
-    final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await http.delete(uri, headers: _headers).timeout(const Duration(seconds: 30));
-    _checkAuth(response);
-    return _parseResponse(response);
+    try {
+      final uri = Uri.parse('$_baseUrl$endpoint');
+      final response =
+          await http.delete(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handle(response);
+    } catch (e) {
+      return _error(e);
+    }
   }
 
-  void _checkAuth(http.Response response) {
-    if (response.statusCode == 401) {
-      token = null;
-      Get.find<RolePermissionService>().logout();
-      Get.offAllNamed('/admin/login');
+  // ─── PATCH ──────────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> patch(
+      String endpoint, Map<String, dynamic> body) async {
+    try {
+      final uri = Uri.parse('$_baseUrl$endpoint');
+      final response = await http
+          .patch(uri, headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handle(response);
+    } catch (e) {
+      return _error(e);
     }
+  }
+
+  // ─── RESPONSE HANDLER ───────────────────────────────────────────────────
+  Map<String, dynamic> _handle(http.Response response) {
+    // Token expired
+    if (response.statusCode == 401) {
+      _box.remove('auth_token');
+      Get.offAllNamed('/login');
+      return {'success': false, 'message': 'Session expired. Please login again.'};
+    }
+
+    try {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return data;
+      }
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Server error ${response.statusCode}',
+        'statusCode': response.statusCode,
+      };
+    } catch (_) {
+      return {
+        'success': false,
+        'message': 'Invalid server response',
+        'statusCode': response.statusCode,
+      };
+    }
+  }
+
+  Map<String, dynamic> _error(dynamic e) {
+    debugPrint('ApiService error: $e');
+    return {
+      'success': false,
+      'message': e.toString().contains('Connection refused')
+          ? 'Cannot connect to server. Is backend running?'
+          : e.toString(),
+    };
   }
 }
