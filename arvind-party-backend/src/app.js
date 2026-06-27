@@ -9,14 +9,15 @@ const Logger = require('./utils/logger');
 
 // ─── IMPORTING ALL PRODUCTION ROUTES ───────────────────────────────────────
 const authRoutes = require('./routes/auth.routes');
-const authSecureController = require('./controllers/authSecure.controller');
+const authSecureRoutes = require('./routes/authSecure.routes');
 const googleAuthRoutes = require('./routes/googleAuthRoutes');
 const firebaseAuthRoutes = require('./routes/firebaseAuth.routes');
+const socialAuthRoutes = require('./routes/socialAuthRoutes');
+const socialRoutes = require('./routes/socialRoutes'); // FIX: was missing import
 const userRoutes = require('./routes/user.routes');
 const adminRoutes = require('./routes/adminRoutes');
 const staffRoutes = require('./routes/staffRoutes');
 const securityRoutes = require('./routes/securityRoutes');
-const socialAuthRoutes = require('./routes/socialAuthRoutes');
 const roomRoutes = require('./routes/room.routes');
 const giftRoutes = require('./routes/gift.routes');
 const walletRoutes = require('./routes/wallet.routes');
@@ -72,39 +73,57 @@ const youtubeRoutes = require('./routes/youtube.routes');
 
 const app = express();
 
-// ─── SECURITY MIDDLEWARES ────────────────────────────────────────────────
-app.use(helmet()); // Protects against XSS, clickjacking, etc.
-app.use(requestLoggerMiddleware); // Log all incoming requests
-app.use(corsConfig); // Enable CORS for Web Panel & App
+// ─── SECURITY MIDDLEWARES ─────────────────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
 
-// Increase JSON body size for Base64 image uploads if necessary
+app.use(requestLoggerMiddleware);
+app.use(corsConfig);
+
+// Body parsers
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate Limiter for general APIs
+// ─── RATE LIMITERS ────────────────────────────────────────────────────────
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { success: false, message: 'Too many requests from this IP, please try again later.' }
 });
 app.use('/api/', apiLimiter);
 
-// ─── STRICT RATE LIMITING FOR AUTH ENDPOINTS ───────────────────────────────
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // max 5 attempts per IP per 15 min
-  skipSuccessfulRequests: false, // count all requests
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: false,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { success: false, message: 'Too many login attempts. Please try again later.' }
 });
 
 const otpLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 3, // max 3 OTP attempts per minute
+  windowMs: 1 * 60 * 1000,
+  max: 3,
   skipSuccessfulRequests: false,
   message: { success: false, message: 'Too many OTP verification attempts. Please try again in 1 minute.' }
 });
 
-// ─── WELCOME & HEALTH CHECK ROUTES ─────────────────────────────────────────
+// ─── HEALTH & WELCOME ─────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({
     success: true,
@@ -120,6 +139,7 @@ app.get('/health', (req, res) => {
     success: true,
     status: 'healthy',
     uptime: process.uptime(),
+    memoryUsage: process.memoryUsage(),
     timestamp: new Date().toISOString()
   });
 });
@@ -128,80 +148,87 @@ app.use('/api/health', healthRoutes);
 
 // ─── AUTH ROUTES ──────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes);
-// Firebase + secure auth (refresh rotation, session revocation)
-app.use('/api/auth', authLimiter, require('./routes/authSecure.routes'));
-app.use('/api/auth/social', require('./routes/googleAuthRoutes')); // Google + Apple OAuth
-app.use('/api/auth/social', socialAuthRoutes); // Social Login (Google, Apple, Facebook, Snapchat, Instagram, Guest)
-app.use('/api/auth', authLimiter, firebaseAuthRoutes); // Firebase ID Token + Apple Sign-In
+app.use('/api/auth', authLimiter, authSecureRoutes);
+app.use('/api/auth/social', googleAuthRoutes);
+app.use('/api/auth/social', socialAuthRoutes);
+app.use('/api/auth', authLimiter, firebaseAuthRoutes);
+
+// ─── USER ROUTES ──────────────────────────────────────────────────────────
 app.use('/api/users', userRoutes);
-app.use('/api/admin', adminRoutes);         // Dashboard, Coin Control, Ban, Withdrawals
-app.use('/api/admin/modules', moduleManagerRoutes); // Specialized Manager Modules
-app.use('/api/localization', localizationRoutes); // Multi-Language & Translation Management
-app.use('/api/staff', staffRoutes);         // Staff Management (Owner Only)
-app.use('/api/security', securityRoutes);   // Security Dashboard (Fraud, Devices, IPs, Audit)
-app.use('/api/rooms', roomRoutes);          // Live Rooms
-app.use('/api/gifts', giftRoutes);          // Gift Sending
-app.use('/api/wallet', walletRoutes);       // Recharges, Transactions
-app.use('/api/agency', agencyRoutes);       // Agency Panel
-app.use('/api/agency', salaryRoutes);       // Agency Salary & Attendance
-app.use('/api/agency', agentRoutes);        // Agency Agents
-app.use('/api/agency', withdrawalRoutes);   // Agency Withdrawals
-app.use('/api/agency', penaltyRoutes);      // Agency Penalties
-app.use('/api/agency', bonusRoutes);        // Agency Bonuses
-app.use('/api/agency', reportsRoutes);      // Agency Reports & Analytics
-app.use('/api/dealer', dealerRoutes);       // Dealer / Coin Seller Wallet System
-app.use('/api/pk-battles', pkBattleRoutes); // Realtime PK Battles
-app.use('/api/families', familyRoutes);     // Family/Guild System
-app.use('/api/family-chat', require('./routes/familyChatRoutes')); // Family Chat
-app.use('/api/shop', shopRoutes);           // Frames, Mounts, Badges
-app.use('/api/games', gameRoutes);          // Lucky Wheel, Scratch Card
-app.use('/api/cp', cpRoutes);               // Couple Pair System
-app.use('/api/treasury', treasuryRoutes);   // Global Treasury
-app.use('/api/matchmaking', matchmakingRoutes); // Dating/Matching
-app.use('/api/rankings', rankingRoutes);        // Wealth & Charm Rankings
-app.use('/api/vip', vipRoutes);                 // VIP Plans & Purchase
-app.use('/api/vip-system', vipSystemRoutes);    // VIP 1-15, SVIP, Premium, Cosmetics, Missions
-app.use('/api/chat', chatRoutes);               // Chat Message History
-app.use('/api/app-users', appUserRoutes);       // App User Actions (Agency, Withdrawal)
-app.use('/api/analytics', analyticsRoutes);     // App-wide Analytics & Revenue Dashboard
+app.use('/api/social', socialRoutes);           // FIX: Follow, Unfollow, Block, Visitors
+app.use('/api/profile', profileRoutes);
+app.use('/api/app-users', appUserRoutes);
 
-// ─── NEW ROUTES ────────────────────────────────────────────────────────────
-app.use('/api/level', levelRoutes);             // User Levels & XP
-app.use('/api/inventory', inventoryRoutes);     // User Inventory
-app.use('/api/creator', creatorRoutes);         // Creator Economy
-app.use('/api/support', supportRoutes);         // Support & Tickets
-app.use('/api/moderation', moderationRoutes);   // Reports & Moderation
-app.use('/api/referral', referralRoutes);       // Referral System
-app.use('/api/room', agoraRoutes);              // Agora token & seat management
-app.use('/api/moments', momentRoutes);          // Moments / Posts Feed
-app.use('/api/notifications', notificationRoutes); // Notifications
-app.use('/api/agency/invitations', agencyInvitationRoutes); // Agency Invitations & Inbox
-app.use('/api/events', eventRoutes);            // Events
-app.use('/api/tournaments', tournamentRoutes);  // Tournaments & Championships
-app.use('/api/treasure-hunts', treasureHuntRoutes); // Treasure Hunts
-app.use('/api/targets', targetRoutes);          // Streamer Targets & 50-50 Split
+// ─── ADMIN & STAFF ────────────────────────────────────────────────────────
+app.use('/api/admin', adminRoutes);
+app.use('/api/admin/modules', moduleManagerRoutes);
+app.use('/api/admin/anti-ban', antiBanRoutes);
+app.use('/api/staff', staffRoutes);
+app.use('/api/security', securityRoutes);
+app.use('/api/moderation', moderationRoutes);
+app.use('/api/support', supportRoutes);
+app.use('/api/localization', localizationRoutes);
+app.use('/api/infrastructure', infrastructureRoutes);
 
-// ─── NEW EVENT SYSTEM ROUTES ────────────────────────────────────────────────
-app.use('/api/lucky-draws', luckyDrawRoutes);     // Lucky Wheel Spinner
-app.use('/api/daily-tasks', dailyTaskRoutes);     // Daily Tasks & Progress
-app.use('/api/invites', inviteRoutes);            // Referral/Invite Events
-app.use('/api/login-streak', loginStreakRoutes);  // Login Streak Rewards
-
-// ─── INFRASTRUCTURE MANAGEMENT ROUTES ──────────────────────────────────────
-app.use('/api/infrastructure', infrastructureRoutes); // Auto-Scaling, CDN, Backup, Monitoring, Deployment, Feature Flags
-
-// ─── USER PROFILE ROUTES ──────────────────────────────────────────────────
-app.use('/api/social', socialRoutes); // Follow, Unfollow, Block, Visitors
-app.use('/api/profile', profileRoutes); // Avatar, Display Name, Bio, XP, Level, Badges
-
-// ─── ANTI-BAN & DEVICE MANAGEMENT ROUTES ──────────────────────────────────
-app.use('/api/admin/anti-ban', antiBanRoutes); // Permanent Device Ban (Owner Only)
-
-// ─── ROOM FEATURES ROUTES ──────────────────────────────────────────────────
+// ─── ROOM ROUTES ──────────────────────────────────────────────────────────
+app.use('/api/rooms', roomRoutes);
 app.use('/api/rooms/features', roomFeaturesRoutes);
-app.use('/api/youtube', youtubeRoutes);              // Shared YouTube Playlist & Player Control
+app.use('/api/room', agoraRoutes);
+app.use('/api/youtube', youtubeRoutes);
+app.use('/api/pk-battles', pkBattleRoutes);
 
-// ─── 404 HANDLER ───────────────────────────────────────────────────────────
+// ─── ECONOMY ROUTES ───────────────────────────────────────────────────────
+app.use('/api/gifts', giftRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/shop', shopRoutes);
+app.use('/api/dealer', dealerRoutes);
+app.use('/api/treasury', treasuryRoutes);
+app.use('/api/inventory', inventoryRoutes);
+
+// ─── AGENCY ROUTES ────────────────────────────────────────────────────────
+app.use('/api/agency', agencyRoutes);
+app.use('/api/agency', salaryRoutes);
+app.use('/api/agency', agentRoutes);
+app.use('/api/agency', withdrawalRoutes);
+app.use('/api/agency', penaltyRoutes);
+app.use('/api/agency', bonusRoutes);
+app.use('/api/agency', reportsRoutes);
+app.use('/api/agency', attendanceRoutes);
+app.use('/api/agency/invitations', agencyInvitationRoutes);
+
+// ─── SOCIAL & COMMUNICATION ───────────────────────────────────────────────
+app.use('/api/chat', chatRoutes);
+app.use('/api/family-chat', require('./routes/familyChatRoutes'));
+app.use('/api/families', familyRoutes);
+app.use('/api/moments', momentRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/referral', referralRoutes);
+
+// ─── GAMING & EVENTS ──────────────────────────────────────────────────────
+app.use('/api/games', gameRoutes);
+app.use('/api/web-view-games', webViewGameRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/tournaments', tournamentRoutes);
+app.use('/api/treasure-hunts', treasureHuntRoutes);
+app.use('/api/lucky-draws', luckyDrawRoutes);
+app.use('/api/daily-tasks', dailyTaskRoutes);
+app.use('/api/invites', inviteRoutes);
+app.use('/api/login-streak', loginStreakRoutes);
+app.use('/api/matchmaking', matchmakingRoutes);
+app.use('/api/targets', targetRoutes);
+app.use('/api/cp', cpRoutes);
+
+// ─── VIP & PROGRESSION ────────────────────────────────────────────────────
+app.use('/api/vip', vipRoutes);
+app.use('/api/vip-system', vipSystemRoutes);
+app.use('/api/level', levelRoutes);
+app.use('/api/rankings', rankingRoutes);
+
+// ─── OTHER ROUTES ─────────────────────────────────────────────────────────
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/creator', creatorRoutes);
+
+// ─── 404 HANDLER ──────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -210,7 +237,7 @@ app.use((req, res) => {
   });
 });
 
-// ─── GLOBAL ERROR HANDLER (Must be LAST) ───────────────────────────────────
+// ─── GLOBAL ERROR HANDLER (Must be LAST) ──────────────────────────────────
 app.use(errorHandler);
 
 module.exports = app;
