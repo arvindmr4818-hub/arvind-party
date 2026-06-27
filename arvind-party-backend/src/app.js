@@ -8,6 +8,7 @@ const requestLoggerMiddleware = require('./middlewares/request-logger.middleware
 const Logger = require('./utils/logger');
 
 // ─── IMPORTING ALL PRODUCTION ROUTES ───────────────────────────────────────
+const adminAuthRoutes = require('./routes/adminAuthRoutes');
 const authRoutes = require('./routes/auth.routes');
 const authSecureRoutes = require('./routes/authSecure.routes');
 const googleAuthRoutes = require('./routes/googleAuthRoutes');
@@ -148,6 +149,7 @@ app.get('/health', (req, res) => {
 app.use('/api/health', healthRoutes);
 
 // ─── AUTH ROUTES ──────────────────────────────────────────────────────────
+app.use('/api/auth', authLimiter, adminAuthRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/auth', authLimiter, authSecureRoutes);
 app.use('/api/auth/social', googleAuthRoutes);
