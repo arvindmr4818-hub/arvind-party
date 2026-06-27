@@ -1,17 +1,87 @@
-# arvind_party_web
+# Arvind Party Web Admin Panel
 
-A new Flutter project.
+## 🚀 Run Locally
 
-## Getting Started
+```bash
+cd arvind_party_web
+flutter pub get
+flutter run -d chrome
+```
 
-This project is a starting point for a Flutter application.
+Backend must be running at `http://localhost:5000`
 
-A few resources to get you started if this is your first Flutter project:
+## 🏗️ Build for Production
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter build web \
+  --dart-define=BACKEND_URL=https://api.yourdomain.com/api \
+  --dart-define=SOCKET_URL=https://api.yourdomain.com \
+  --dart-define=FIREBASE_API_KEY=your_key \
+  --dart-define=FIREBASE_PROJECT_ID=your_project_id \
+  --dart-define=FIREBASE_APP_ID=your_app_id
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+# Deploy build/web/ to your web server or CDN
+```
+
+## 📋 All Admin Pages (30+)
+
+| Page | Route | Access |
+|------|-------|--------|
+| Dashboard | /dashboard | All Admin |
+| Users | /users | All Admin |
+| Staff | /staff | Admin+ |
+| Rooms | /rooms | All Admin |
+| Gifts | /gifts | All Admin |
+| Transactions | /transactions | Finance+ |
+| Wallet Management | /wallet-management | Finance+ |
+| **Coin Manager** | /coin-manager | **OWNER ONLY** |
+| Agency | /agency | All Admin |
+| VIP System | /vip-admin | All Admin |
+| Events | /events | All Admin |
+| Games | /games | All Admin |
+| Leaderboard | /leaderboard | All Admin |
+| Families | /families | All Admin |
+| PK Battle | /pk-battle-management | All Admin |
+| Notifications | /notifications | Admin+ |
+| Reports | /reports | Finance+ |
+| Analytics | /analytics-dashboard | All Admin |
+| Security | /security | Admin+ |
+| Monitoring | /infrastructure/monitoring | Super Admin |
+| Support Tickets | /support | Support+ |
+| Settings | /settings | Owner+ |
+| Localization | /localization | Admin+ |
+
+## 🔑 Admin Login
+
+Default admin must be created in MongoDB:
+
+```javascript
+// Run in MongoDB shell:
+db.users.insertOne({
+  name: "Super Admin",
+  username: "admin",
+  email: "admin@arvindparty.com",
+  password: "$2a$12$...", // bcrypt hash of your password
+  role: "owner",
+  isActive: true,
+  createdAt: new Date()
+})
+```
+
+Or use the backend seeder:
+```bash
+cd arvind-party-backend
+node src/utils/createAdmin.js
+```
+
+## 🔒 Role Hierarchy
+
+```
+owner > super_admin > admin > finance > moderator > support > content_manager
+```
+
+- **owner**: All access including Coin Manager
+- **admin**: All except Coin Manager
+- **moderator**: Users, Rooms, Support
+- **support**: Support tickets only
+- **finance**: Transactions, Wallet, Reports
