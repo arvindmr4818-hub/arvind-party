@@ -1,39 +1,57 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// ARVIND PARTY WEB PANEL - Environment Configuration
+// ARVIND PARTY WEB PANEL — Environment Configuration
 // ═══════════════════════════════════════════════════════════════════════════
-// This is the canonical env config. Copy env_config_template.dart to this
-// file and fill in your real values. DO NOT commit this file.
+// HOW TO USE:
+//   Dev:  flutter run -d chrome
+//   Prod: flutter build web --dart-define=BACKEND_URL=https://api.yourdomain.com
 // ═══════════════════════════════════════════════════════════════════════════
 
 class EnvConfig {
-  // ─── API BASE URL ───────────────────────────────────────────────────
-  // Development: http://192.168.1.100:5000/api
-  // Production:  https://api.arvindparty.com/api
-  static const String apiBaseUrl = 'http://INSERT_YOUR_BACKEND_IP_HERE:5000/api';
+  // ─── API URLS ───────────────────────────────────────────────────────────
+  // Dev: your local PC IP (change to your machine IP)
+  static const String devApiBaseUrl = 'http://localhost:5000/api';
 
-  // ─── SOCKET.IO URL ──────────────────────────────────────────────────
-  static const String socketUrl = 'http://INSERT_YOUR_BACKEND_IP_HERE:5000';
+  // Prod: set via --dart-define=BACKEND_URL=https://api.yourdomain.com/api
+  static const String prodApiBaseUrl = String.fromEnvironment(
+    'BACKEND_URL',
+    defaultValue: 'https://api.arvindparty.com/api',
+  );
 
-  // ─── FIREBASE CONFIG ────────────────────────────────────────────────
-  static const Map<String, dynamic> firebaseConfig = {
-    'apiKey': 'INSERT_YOUR_FIREBASE_API_KEY_HERE',
-    'authDomain': 'INSERT_YOUR_FIREBASE_AUTH_DOMAIN_HERE',
-    'projectId': 'INSERT_YOUR_FIREBASE_PROJECT_ID_HERE',
-    'storageBucket': 'INSERT_YOUR_FIREBASE_STORAGE_BUCKET_HERE',
-    'messagingSenderId': 'INSERT_YOUR_FIREBASE_SENDER_ID_HERE',
-    'appId': 'INSERT_YOUR_FIREBASE_APP_ID_HERE',
-    'measurementId': 'INSERT_YOUR_FIREBASE_MEASUREMENT_ID_HERE',
-  };
+  // ─── SOCKET.IO ──────────────────────────────────────────────────────────
+  static const String devSocketUrl = 'http://localhost:5000';
+  static const String prodSocketUrl = String.fromEnvironment(
+    'SOCKET_URL',
+    defaultValue: 'https://api.arvindparty.com',
+  );
 
-  // ─── RAZORPAY ───────────────────────────────────────────────────────
-  static const String razorpayKeyId = 'INSERT_YOUR_RAZORPAY_KEY_ID_HERE';
+  // ─── FIREBASE ───────────────────────────────────────────────────────────
+  static const String firebaseApiKey =
+      String.fromEnvironment('FIREBASE_API_KEY', defaultValue: '');
+  static const String firebaseAuthDomain =
+      String.fromEnvironment('FIREBASE_AUTH_DOMAIN', defaultValue: '');
+  static const String firebaseProjectId =
+      String.fromEnvironment('FIREBASE_PROJECT_ID', defaultValue: '');
+  static const String firebaseStorageBucket =
+      String.fromEnvironment('FIREBASE_STORAGE_BUCKET', defaultValue: '');
+  static const String firebaseMessagingSenderId =
+      String.fromEnvironment('FIREBASE_SENDER_ID', defaultValue: '');
+  static const String firebaseAppId =
+      String.fromEnvironment('FIREBASE_APP_ID', defaultValue: '');
 
-  // ─── AGORA ──────────────────────────────────────────────────────────
-  static const String agoraAppId = 'INSERT_YOUR_AGORA_APP_ID_HERE';
-
-  // ─── APP DEFAULTS ───────────────────────────────────────────────────
+  // ─── APP CONFIG ─────────────────────────────────────────────────────────
   static const String appName = 'Arvind Party Admin';
   static const String appVersion = '1.0.0';
   static const int pageSize = 20;
   static const int requestTimeoutSeconds = 30;
+
+  // ─── PRODUCTION BUILD COMMAND ───────────────────────────────────────────
+  // flutter build web \
+  //   --dart-define=BACKEND_URL=https://api.yourdomain.com/api \
+  //   --dart-define=SOCKET_URL=https://api.yourdomain.com \
+  //   --dart-define=FIREBASE_API_KEY=your_key \
+  //   --dart-define=FIREBASE_AUTH_DOMAIN=your_domain \
+  //   --dart-define=FIREBASE_PROJECT_ID=your_project \
+  //   --dart-define=FIREBASE_STORAGE_BUCKET=your_bucket \
+  //   --dart-define=FIREBASE_SENDER_ID=your_sender_id \
+  //   --dart-define=FIREBASE_APP_ID=your_app_id
 }
