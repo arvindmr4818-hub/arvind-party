@@ -17,6 +17,7 @@ const socialAuthRoutes = require('./routes/socialAuthRoutes');
 const socialRoutes = require('./routes/socialRoutes'); // FIX: was missing import
 const userRoutes = require('./routes/user.routes');
 const adminRoutes = require('./routes/adminRoutes');
+const gameAdminRoutes = require('./routes/gameAdminRoutes');
 const staffRoutes = require('./routes/staffRoutes');
 const securityRoutes = require('./routes/securityRoutes');
 const roomRoutes = require('./routes/room.routes');
@@ -208,6 +209,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/referral', referralRoutes);
 
 // ─── GAMING & EVENTS ──────────────────────────────────────────────────────
+app.use('/api/games', gameAdminRoutes); // admin game stats
 app.use('/api/games', gameRoutes);
 app.use('/api/web-view-games', webViewGameRoutes);
 app.use('/api/events', eventRoutes);
