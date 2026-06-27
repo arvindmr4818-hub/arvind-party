@@ -20,6 +20,7 @@ const staffRoutes = require('./routes/staffRoutes');
 const securityRoutes = require('./routes/securityRoutes');
 const roomRoutes = require('./routes/room.routes');
 const giftRoutes = require('./routes/gift.routes');
+const coinAdminRoutes = require('./routes/coinAdminRoutes');
 const walletRoutes = require('./routes/wallet.routes');
 const agencyRoutes = require('./routes/agencyRoutes');
 const pkBattleRoutes = require('./routes/pkBattleRoutes');
@@ -225,6 +226,7 @@ app.use('/api/level', levelRoutes);
 app.use('/api/rankings', rankingRoutes);
 
 // ─── OTHER ROUTES ─────────────────────────────────────────────────────────
+app.use('/api/admin', coinAdminRoutes); // OWNER: Coin generation
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/creator', creatorRoutes);
 
