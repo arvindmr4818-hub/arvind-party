@@ -1,171 +1,121 @@
-// ═══════════════════════════════════════════════════════════════════════════
-// VIEW: VipManagementView — VIP plan CRUD
-// ═══════════════════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/services/api_service.dart';
-import '../../core/services/role_permission_service.dart';
+import '../shared/admin_shell.dart';
 
-class VipManagementView extends StatefulWidget {
-  const VipManagementView({super.key});
-
+class VipAdminView extends StatefulWidget {
+  const VipAdminView({super.key});
   @override
-  State<VipManagementView> createState() => _VipManagementViewState();
+  State<VipAdminView> createState() => _VipAdminViewState();
 }
 
-class _VipManagementViewState extends State<VipManagementView> {
-  final _permService = Get.find<RolePermissionService>();
-  final _apiService = Get.find<ApiService>();
-
-  List<Map<String, dynamic>> _plans = [];
+class _VipAdminViewState extends State<VipAdminView> {
+  final _api = Get.find<ApiService>();
+  List<Map<String, dynamic>> _vipUsers = [];
+  Map<String, dynamic> _stats = {};
   bool _isLoading = true;
 
-  final _nameController = TextEditingController();
-  final _priceController = TextEditingController();
-  final _durationController = TextEditingController();
-  final _benefitsController = TextEditingController();
-  final _levelController = TextEditingController();
+  final List<Map<String, dynamic>> _vipLevels = [
+    {'level': 1, 'name': 'VIP 1', 'required': 1000, 'color': 0xFF9E9E9E},
+    {'level': 2, 'name': 'VIP 2', 'required': 5000, 'color': 0xFF4CAF50},
+    {'level': 3, 'name': 'VIP 3', 'required': 20000, 'color': 0xFF2196F3},
+    {'level': 4, 'name': 'VIP 4', 'required': 50000, 'color': 0xFF9C27B0},
+    {'level': 5, 'name': 'VIP 5', 'required': 100000, 'color': 0xFFFF9800},
+    {'level': 6, 'name': 'VIP 6', 'required': 200000, 'color': 0xFFF44336},
+    {'level': 7, 'name': 'SVIP 1', 'required': 500000, 'color': 0xFFFFD700},
+    {'level': 8, 'name': 'SVIP 2', 'required': 1000000, 'color': 0xFFFF8906},
+  ];
 
   @override
-  void initState() {
-    super.initState();
-    _loadPlans();
-  }
+  void initState() { super.initState(); _load(); }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _priceController.dispose();
-    _durationController.dispose();
-    _benefitsController.dispose();
-    _levelController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadPlans() async {
+  Future<void> _load() async {
     setState(() => _isLoading = true);
     try {
-      final response = await _apiService.get('/vip/plans');
-      if (response['success'] == true) {
-        _plans = List<Map<String, dynamic>>.from(response['data'] ?? []);
-      }
+      final res = await _api.get('/vip/admin/stats');
+      if (res['success'] == true) _stats = Map<String, dynamic>.from(res['data'] ?? {});
+      final users = await _api.get('/vip/admin/top-users');
+      if (users['success'] == true) _vipUsers = List<Map<String, dynamic>>.from(users['data'] ?? []);
     } catch (_) {}
     setState(() => _isLoading = false);
   }
 
-  Future<void> _addPlan() async {
-    final name = _nameController.text.trim();
-    final price = double.tryParse(_priceController.text);
-    final duration = int.tryParse(_durationController.text);
-    final level = int.tryParse(_levelController.text);
-
-    if (name.isEmpty || price == null || duration == null || level == null) {
-      Get.snackbar('Error', 'All fields required with valid values', backgroundColor: Colors.red);
-      return;
-    }
-
-    try {
-      await _apiService.post('/vip/plans', {
-        'name': name,
-        'price': price,
-        'durationDays': duration,
-        'level': level,
-        'benefits': _benefitsController.text.trim(),
-        'isActive': true,
-      });
-      Get.snackbar('Success', 'VIP plan created', backgroundColor: Colors.green);
-      _clearControllers();
-      _loadPlans();
-    } catch (_) {
-      Get.snackbar('Error', 'Creation failed', backgroundColor: Colors.red);
-    }
-  }
-
-  void _clearControllers() {
-    _nameController.clear();
-    _priceController.clear();
-    _durationController.clear();
-    _benefitsController.clear();
-    _levelController.clear();
-  }
-
-  Future<void> _togglePlan(String planId, bool currentStatus) async {
-    try {
-      await _apiService.put('/vip/plans/$planId', {'isActive': !currentStatus});
-      Get.snackbar('Success', currentStatus ? 'Plan deactivated' : 'Plan activated', backgroundColor: Colors.green);
-      _loadPlans();
-    } catch (_) {
-      Get.snackbar('Error', 'Operation failed', backgroundColor: Colors.red);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final canEdit = _permService.hasPermission('vip.edit');
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('VIP Management')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (canEdit) ...[
-                    const Text('Create VIP Plan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(child: TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Plan Name', border: OutlineInputBorder()))),
-                        const SizedBox(width: 8),
-                        Expanded(child: TextField(controller: _priceController, decoration: const InputDecoration(labelText: 'Price', border: OutlineInputBorder()), keyboardType: TextInputType.number)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(child: TextField(controller: _durationController, decoration: const InputDecoration(labelText: 'Duration (days)', border: OutlineInputBorder()), keyboardType: TextInputType.number)),
-                        const SizedBox(width: 8),
-                        Expanded(child: TextField(controller: _levelController, decoration: const InputDecoration(labelText: 'VIP Level', border: OutlineInputBorder()), keyboardType: TextInputType.number)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(controller: _benefitsController, decoration: const InputDecoration(labelText: 'Benefits (comma separated)', border: OutlineInputBorder())),
-                    const SizedBox(height: 8),
-                    ElevatedButton.icon(onPressed: _addPlan, icon: const Icon(Icons.add), label: const Text('Create Plan')),
-                    const SizedBox(height: 24),
-                  ],
-                  const Text('All VIP Plans', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+    return AdminShell(
+      title: 'VIP System',
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(children: [
+          Row(children: [
+            Expanded(child: StatCard(title: 'Total VIP Users', value: '${_stats['totalVip'] ?? 0}', icon: Icons.star, color: const Color(0xFFFFD700))),
+            const SizedBox(width: 12),
+            Expanded(child: StatCard(title: 'SVIP Users', value: '${_stats['svipCount'] ?? 0}', icon: Icons.workspace_premium, color: const Color(0xFFFF8906))),
+            const SizedBox(width: 12),
+            Expanded(child: StatCard(title: 'VIP Revenue', value: '${_stats['vipRevenue'] ?? 0}', icon: Icons.monetization_on, color: const Color(0xFF2ED573))),
+          ]),
+          const SizedBox(height: 24),
+          // VIP Level Cards
+          const Align(alignment: Alignment.centerLeft,
+            child: Text('VIP Level Distribution', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))),
+          const SizedBox(height: 12),
+          GridView.builder(
+            shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 200, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.4),
+            itemCount: _vipLevels.length,
+            itemBuilder: (_, i) {
+              final level = _vipLevels[i];
+              final count = _stats['level${level['level']}Count'] ?? 0;
+              return LuxuryCard(
+                borderColor: Color(level['color'] as int).withOpacity(0.4),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Icon(Icons.star, color: Color(level['color'] as int), size: 16),
+                    const SizedBox(width: 6),
+                    Text(level['name'] as String, style: TextStyle(color: Color(level['color'] as int), fontWeight: FontWeight.bold, fontSize: 12)),
+                  ]),
                   const SizedBox(height: 8),
-                  _plans.isEmpty
-                      ? const Text('No plans found')
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _plans.length,
-                          itemBuilder: (ctx, i) {
-                            final plan = _plans[i];
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                leading: const Icon(Icons.stars, color: Colors.amber),
-                                title: Text(plan['name'] ?? 'Unnamed'),
-                                subtitle: Text('Price: ${plan['price']} | Level: ${plan['level']} | ${plan['durationDays']} days'),
-                                trailing: canEdit
-                                    ? IconButton(
-                                        icon: Icon(plan['isActive'] == true ? Icons.visibility : Icons.visibility_off),
-                                        onPressed: () => _togglePlan(plan['_id'], plan['isActive'] == true),
-                                      )
-                                    : null,
-                              ),
-                            );
-                          },
-                        ),
-                ],
-              ),
-            ),
+                  Text('$count', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('Min: ${level['required']} spent', style: const TextStyle(color: Color(0xFF6B7280), fontSize: 10)),
+                ]),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+          const Align(alignment: Alignment.centerLeft,
+            child: Text('Top VIP Users', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))),
+          const SizedBox(height: 12),
+          LuxuryDataTable(
+            isLoading: _isLoading,
+            emptyMessage: 'No VIP users found',
+            columns: const ['User', 'VIP Level', 'Total Spent', 'Diamonds', 'Since'],
+            rows: _vipUsers.map((u) => [
+              Row(children: [
+                CircleAvatar(radius: 16, backgroundColor: const Color(0xFFFF8906),
+                  child: Text((u['name'] ?? 'U')[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                const SizedBox(width: 8),
+                Text(u['name'] ?? '—', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+              ]),
+              Row(children: [
+                const Icon(Icons.star, color: Color(0xFFFFD700), size: 14),
+                const SizedBox(width: 4),
+                Text('Level ${u['vipLevel'] ?? 0}', style: const TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold)),
+              ]),
+              Text('💎 ${u['totalSpent'] ?? 0}', style: const TextStyle(color: Color(0xFF2ED573), fontWeight: FontWeight.bold)),
+              Text('${u['diamonds'] ?? 0}', style: const TextStyle(color: Color(0xFF00B4D8))),
+              Text(_fmt(u['vipSince']), style: const TextStyle(color: Color(0xFF6B7280), fontSize: 12)),
+            ]).toList(),
+          ),
+        ]),
+      ),
     );
+  }
+
+  String _fmt(dynamic d) {
+    if (d == null) return '—';
+    try { final dt = DateTime.parse(d.toString()); return '${dt.day}/${dt.month}/${dt.year}'; } catch (_) { return '—'; }
   }
 }
