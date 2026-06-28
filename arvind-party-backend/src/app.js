@@ -47,7 +47,7 @@ const vipSystemRoutes = require('./routes/vipSystemRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const appUserRoutes = require('./routes/appUserRoutes');
 const levelRoutes = require('./routes/level.routes');
-const agoraRoutes = require('./controllers/agoraController');
+const livekitRoutes = require('./controllers/livekitController');
 const inventoryRoutes = require('./routes/inventory.routes');
 const creatorRoutes = require('./routes/creator.routes');
 const supportRoutes = require('./routes/support.routes');
@@ -177,7 +177,7 @@ app.use('/api/infrastructure', infrastructureRoutes);
 // ─── ROOM ROUTES ──────────────────────────────────────────────────────────
 app.use('/api/rooms', roomRoutes);
 app.use('/api/rooms/features', roomFeaturesRoutes);
-app.use('/api/room', agoraRoutes);
+app.use('/api', livekitRoutes); // LiveKit: token, seats, host controls
 app.use('/api/youtube', youtubeRoutes);
 app.use('/api/pk-battles', pkBattleRoutes);
 
