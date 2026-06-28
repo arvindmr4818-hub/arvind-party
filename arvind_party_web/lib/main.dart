@@ -1,104 +1,117 @@
-import 'package:firebase_core/firebase_core.dart';
+// ═══════════════════════════════════════════════════════════════════════════
+// ARVIND PARTY WEB ADMIN PANEL — main.dart
+// Production Ready: Flutter Web + GetX + Real Backend
+// ═══════════════════════════════════════════════════════════════════════════
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'core/constants/env_config.dart';
+import 'core/services/api_service.dart';
 import 'core/constants/auth_controller.dart';
-import 'core/network/admin_api.dart';
-import 'core/theme/web_theme.dart';
 import 'routes/app_pages.dart';
 import 'routes/app_routes.dart';
 
-// ============================================================
-// ARVIND PARTY WEB — Admin Panel Entry Point
-// ============================================================
-
-// Securely define Firebase options using compile-time variables.
-// These values are passed during the build command, e.g.:
-// flutter run -d chrome --dart-define=FIREBASE_API_KEY=YOUR_KEY
-const firebaseOptions = FirebaseOptions(
-  apiKey: String.fromEnvironment('FIREBASE_API_KEY', defaultValue: 'NOT_SET'),
-  authDomain: String.fromEnvironment('FIREBASE_AUTH_DOMAIN', defaultValue: 'NOT_SET'),
-  projectId: String.fromEnvironment('FIREBASE_PROJECT_ID', defaultValue: 'NOT_SET'),
-  storageBucket: String.fromEnvironment('FIREBASE_STORAGE_BUCKET', defaultValue: 'NOT_SET'),
-  messagingSenderId: String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID', defaultValue: 'NOT_SET'),
-  appId: String.fromEnvironment('FIREBASE_APP_ID', defaultValue: 'NOT_SET'),
-);
-
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-    DeviceOrientation.portraitUp,
-  ]);
-  
+  // Initialize storage
   await GetStorage.init();
 
-  // Initialize Firebase securely using the compile-time options.
-  await Firebase.initializeApp(options: firebaseOptions);
+  // Initialize Firebase (only if keys are set)
+  if (EnvConfig.firebaseProjectId.isNotEmpty) {
+    try {
+      await Firebase.initializeApp(
+        options: FirebaseOptions(
+          apiKey: EnvConfig.firebaseApiKey,
+          authDomain: EnvConfig.firebaseAuthDomain,
+          projectId: EnvConfig.firebaseProjectId,
+          storageBucket: EnvConfig.firebaseStorageBucket,
+          messagingSenderId: EnvConfig.firebaseMessagingSenderId,
+          appId: EnvConfig.firebaseAppId,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Firebase init skipped: $e');
+    }
+  }
 
-  Get.put<AdminApi>(AdminApi(), permanent: true);
-  Get.put<AuthController>(AuthController(), permanent: true);
+  // Register global services
+  Get.put(ApiService(), permanent: true);
+  Get.put(AuthController(), permanent: true);
 
-  runApp(const AdminApp());
+  runApp(const ArvindPartyAdminApp());
 }
 
-class AdminApp extends StatelessWidget {
-  const AdminApp({super.key});
+class ArvindPartyAdminApp extends StatelessWidget {
+  const ArvindPartyAdminApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'Arvind Party Admin Panel',
+      title: 'Arvind Party Admin',
       debugShowCheckedModeBanner: false,
-      theme: WebTheme.darkTheme,
+      theme: _buildTheme(),
+      initialRoute: _getInitialRoute(),
+      getPages: AppPages.pages,
+      unknownRoute: GetPage(name: AppRoutes.notFound, page: () => const NotFoundPage()),
       defaultTransition: Transition.fadeIn,
       transitionDuration: const Duration(milliseconds: 200),
-      initialRoute: AppRoutes.login,
-      getPages: AppPages.pages,
-      unknownRoute: GetPage(
-        name: '/not-found',
-        page: () => const _NotFoundPage(),
-        transition: Transition.fadeIn,
-      ),
-      routingCallback: (routing) {
-        final auth = AuthController.to;
-        if (routing?.current == AppRoutes.login && auth.isLoggedIn.value) {
-          Get.offAllNamed(AppRoutes.dashboard);
-        }
-      },
     );
   }
-}
 
-class _NotFoundPage extends StatelessWidget {
-  const _NotFoundPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: WebTheme.backgroundDark,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 80, color: WebTheme.errorRed),
-            const SizedBox(height: 16),
-            Text('404', style: Theme.of(context).textTheme.displayLarge?.copyWith(
-              color: WebTheme.errorRed, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text('Page Not Found', style: TextStyle(color: WebTheme.textSecondary, fontSize: 18)),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => Get.offAllNamed(AppRoutes.login),
-              icon: const Icon(Icons.home),
-              label: const Text('Go to Login'),
-            ),
-          ],
+  ThemeData _buildTheme() {
+    return ThemeData(
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: const Color(0xFF0A0A14),
+      colorScheme: const ColorScheme.dark(
+        primary: Color(0xFFFF8906),
+        secondary: Color(0xFF00B4D8),
+        surface: Color(0xFF0F0E1A),
+        error: Color(0xFFFF4757),
+      ),
+      textTheme: GoogleFonts.poppinsTextTheme(
+        ThemeData.dark().textTheme,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF0F0E1A),
+        elevation: 0,
+        titleTextStyle: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFF1A1928),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF1E1D2F))),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF1E1D2F))),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFFF8906))),
+        labelStyle: const TextStyle(color: Color(0xFF6B7280)),
+        hintStyle: const TextStyle(color: Color(0xFF3A3A4A)),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFF8906),
+          foregroundColor: Colors.black,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         ),
       ),
+      cardTheme: CardThemeData(
+        color: const Color(0xFF0F0E1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 0,
+      ),
     );
+  }
+
+  String _getInitialRoute() {
+    final storage = GetStorage();
+    final token = storage.read('auth_token');
+    return token != null && token.toString().isNotEmpty
+        ? AppRoutes.dashboard
+        : AppRoutes.login;
   }
 }
