@@ -27,7 +27,8 @@
     "razorpay": "^2.9.2",
     "redis": "^4.6.13",
     "socket.io": "^4.7.5",
-    "twilio": "^4.10.0"
+    "twilio": "^4.10.0",
+    "agora-token": "^2.0.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
