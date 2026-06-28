@@ -158,3 +158,17 @@ volumes:
 networks:
   arvind-party-network:
     driver: bridge
+
+  # ─── LIVEKIT (Free Voice/Video Server) ─────────────────────────────────
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml
+    restart: unless-stopped
+    ports:
+      - "7880:7880"      # HTTP/WebSocket
+      - "7881:7881"      # TCP for RTC
+      - "50000-60000:50000-60000/udp"  # UDP for media
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml
+    networks:
+      - arvind_network
