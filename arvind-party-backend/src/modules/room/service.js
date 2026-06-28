@@ -1,115 +1,51 @@
-// =========================================================================
-// MODULE: ROOM — SERVICES
-// =========================================================================
-
-
-// ─── FROM: agoraService.js ────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
-// FILE: src/services/agoraService.js
-// ARVIND PARTY - AGORA SERVICE (Token Generation)
+// MODULE: room/service.js — Agora Token Generation Service
+// Package: agora-token (npm install agora-token)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const Agora = require('agora-access-token');
+const { RtcTokenBuilder, RtcRole, RtmTokenBuilder } = require('agora-token');
 
 class AgoraService {
   /**
-   * Generate Agora RTC token for voice/video calling
-   * @param {Object} options
-   * @param {string} options.appId - Agora App ID
-   * @param {string} options.appCertificate - Agora App Certificate
-   * @param {string} options.channelName - Channel name for the call
-   * @param {number} options.uid - User ID (0 for dynamic assignment)
-   * @param {string} options.role - 'publisher' or 'audience'
-   * @param {number} options.expireTime - Token expiration time in seconds (default: 3600)
-   * @returns {string} RTC token
+   * Generate RTC token for voice/video rooms
    */
-  static generateToken({
-    appId,
-    appCertificate,
-    channelName,
-    uid,
-    role = 'audience',
-    expireTime = 3600,
-  }) {
+  static generateRtcToken({ channelName, uid, role = 'audience', expireSeconds = 3600 }) {
+    const appId = process.env.AGORA_APP_ID;
+    const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+
     if (!appId || !appCertificate) {
-      throw new Error('Agora App ID and Certificate are required');
+      throw new Error('AGORA_APP_ID and AGORA_APP_CERTIFICATE must be set in .env');
     }
 
     const currentTime = Math.floor(Date.now() / 1000);
-    const expirationTimeInSeconds = currentTime + expireTime;
+    const privilegeExpireTime = currentTime + expireSeconds;
+    const rtcRole = role === 'publisher' ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
 
-    // Build token
-    let token;
-    if (role === 'publisher') {
-      token = Agora.RtcTokenBuilder.buildTokenWithUid(
-        appId,
-        appCertificate,
-        channelName,
-        uid,
-        Agora.RtcRole.PUBLISHER,
-        expirationTimeInSeconds
-      );
-    } else {
-      token = Agora.RtcTokenBuilder.buildTokenWithUid(
-        appId,
-        appCertificate,
-        channelName,
-        uid,
-        Agora.RtcRole.SUBSCRIBER,
-        expirationTimeInSeconds
-      );
-    }
-
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      appId, appCertificate, channelName,
+      uid || 0, rtcRole, privilegeExpireTime
+    );
     return token;
   }
 
   /**
-   * Generate Agora RTM token for messaging
-   * @param {string} appId - Agora App ID
-   * @param {string} appCertificate - Agora App Certificate
-   * @param {string} userId - User ID
-   * @param {number} expireTime - Token expiration time in seconds
-   * @returns {string} RTM token
+   * Generate RTM token for messaging
    */
-  static generateRtmToken(appId, appCertificate, userId, expireTime = 3600) {
-    if (!appId || !appCertificate) {
-      throw new Error('Agora App ID and Certificate are required');
-    }
+  static generateRtmToken(userId, expireSeconds = 3600) {
+    const appId = process.env.AGORA_APP_ID;
+    const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+    if (!appId || !appCertificate) throw new Error('Agora credentials missing');
 
     const currentTime = Math.floor(Date.now() / 1000);
-    const expirationTimeInSeconds = currentTime + expireTime;
-
-    return Agora.RtmTokenBuilder.buildToken(
-      appId,
-      appCertificate,
-      userId,
-      expirationTimeInSeconds
+    const token = RtmTokenBuilder.buildToken(
+      appId, appCertificate, String(userId),
+      currentTime + expireSeconds
     );
+    return token;
   }
 
-  /**
-   * Validate Agora token
-   * @param {string} token - Token to validate
-   * @returns {boolean} Whether token is valid
-   */
-  static validateToken(token) {
-    // Agora tokens are validated on the Agora servers
-    // This is a placeholder for custom validation logic if needed
-    return token && token.length > 0;
-  }
-
-  /**
-   * Get channel metadata for a room
-   * @param {string} roomId - Room ID
-   * @returns {Object} Channel metadata
-   */
-  static getChannelMetadata(roomId) {
-    return {
-      channelName: `room_${roomId}`,
-      feature: {
-        level: 0, // 0: No restrictions, 1: Live, 2: Interactive streaming
-      },
-    };
+  static getChannelName(roomId) {
+    return `arvind_room_${roomId}`;
   }
 }
 
