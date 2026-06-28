@@ -1,0 +1,29 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# LiveKit Server Configuration — Self-Hosted (FREE)
+# Save as: livekit.yaml
+# Run: livekit-server --config livekit.yaml
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Server port
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 60000
+  # IMPORTANT: Set your server's public IP here for production
+  # node_ip: YOUR_SERVER_PUBLIC_IP
+
+keys:
+  # These MUST match LIVEKIT_API_KEY and LIVEKIT_API_SECRET in .env
+  devkey: secret
+
+logging:
+  level: info
+
+# For production with domain:
+# turn:
+#   enabled: true
+#   domain: livekit.yourdomain.com
+#   tls_port: 5349
+#   udp_port: 3478
+#   credential: your_turn_credential
