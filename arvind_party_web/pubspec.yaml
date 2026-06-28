@@ -26,7 +26,7 @@ dependencies:
   firebase_core: ^4.10.0
   firebase_auth: ^6.5.2
   shared_preferences: ^2.5.5
-  local_auth: ^3.0.1
+  # local_auth: ^3.0.1  # Removed: not supported on Flutter Web
 
   # ========== UI & DESIGN ==========
   google_fonts: ^6.3.3
@@ -79,11 +79,11 @@ dependencies:
   stream_transform: ^2.1.1
 
   # ========== STORAGE & PERSISTENCE ==========
-  isar: ^3.1.0+1
-  sqflite: ^2.4.2+1
+  # isar: ^3.1.0+1  # Removed: not supported on Flutter Web
+  # sqflite: ^2.4.2+1  # Removed: not supported on Flutter Web
 
   # ========== ENCRYPTION ==========
-  flutter_secure_storage: ^10.3.1
+  # flutter_secure_storage: ^10.3.1  # Removed: not supported on Flutter Web
 
   # ========== ENVIRONMENT & CONFIG ==========
   flutter_dotenv: ^6.0.1
@@ -97,7 +97,7 @@ dependencies:
   lottie: ^3.3.0
 
   # ========== PERMISSIONS =========
-  permission_handler: ^12.0.3
+  # permission_handler: ^12.0.3  # Removed: not supported on Flutter Web
 
   # ========== CLIPBOARD & SHARE ==========
   share_plus: ^12.0.2
