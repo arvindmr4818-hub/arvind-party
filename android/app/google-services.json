@@ -1,0 +1,38 @@
+{
+  "_comment": "REPLACE THIS FILE with your real google-services.json from Firebase Console",
+  "_instructions": [
+    "1. Go to https://console.firebase.google.com",
+    "2. Select your project (or create one)",
+    "3. Add an Android app with package name: com.arvindparty.app",
+    "4. Download google-services.json",
+    "5. Replace this file at: android/app/google-services.json",
+    "6. Also enable Phone Authentication and Google Sign-In in Firebase Console > Authentication"
+  ],
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "REPLACE_WITH_YOUR_FIREBASE_PROJECT_ID",
+    "storage_bucket": "REPLACE_WITH_YOUR_PROJECT_ID.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "REPLACE_WITH_YOUR_APP_ID",
+        "android_client_info": {
+          "package_name": "com.arvindparty.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "REPLACE_WITH_YOUR_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
