@@ -23,6 +23,7 @@ const securityRoutes = require('./routes/securityRoutes');
 const roomRoutes = require('./routes/room.routes');
 const giftRoutes = require('./routes/gift.routes');
 const coinAdminRoutes = require('./routes/coinAdminRoutes');
+const walletPaymentRoutes = require('./modules/wallet/paymentRoutes');
 const walletRoutes = require('./routes/wallet.routes');
 const agencyRoutes = require('./routes/agencyRoutes');
 const pkBattleRoutes = require('./routes/pkBattleRoutes');
@@ -183,6 +184,7 @@ app.use('/api/pk-battles', pkBattleRoutes);
 
 // ─── ECONOMY ROUTES ───────────────────────────────────────────────────────
 app.use('/api/gifts', giftRoutes);
+app.use('/api/wallet', walletPaymentRoutes); // Razorpay
 app.use('/api/wallet', walletRoutes);
 app.use('/api/shop', shopRoutes);
 app.use('/api/dealer', dealerRoutes);
