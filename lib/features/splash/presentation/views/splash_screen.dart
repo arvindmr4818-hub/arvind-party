@@ -18,7 +18,7 @@ class SplashScreen extends GetView<SplashController> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/splash/logo.png', height: 120, width: 120),
+            Image.asset('assets/splash/splash_icon.png', height: 120, width: 120),
             const SizedBox(height: 24),
             const Text(
               'ARVIND PARTY',
