@@ -1,328 +1,76 @@
-// ═══════════════════════════════════════════════════════════════════════════
-// FILE: lib/features/gift/presentation/controllers/gift_controller.dart
-// ARVIND PARTY - GIFT CONTROLLER (Extended: Lucky, Treasure, Combo, Collection, Goals)
-// ═══════════════════════════════════════════════════════════════════════════
-
 import 'package:get/get.dart';
-import 'package:flutter/foundation.dart';
+import 'package:get_storage/get_storage.dart';
 import '../../../../core/services/api_service.dart';
-import '../../models/gift_model.dart';
+import '../../../../core/socket/socket_service.dart';
 
 class GiftController extends GetxController {
-  final ApiService _apiService = Get.find<ApiService>();
+  final ApiService _api = Get.find<ApiService>();
 
+  final gifts = <Map<String, dynamic>>[].obs;
+  final categories = <String>[].obs;
+  final selectedCategory = 'All'.obs;
+  final selectedGift = Rx<Map<String, dynamic>?>(null);
   final isLoading = false.obs;
-  final gifts = <GiftModel>[].obs;
-  final giftHistory = <GiftHistoryModel>[].obs;
-  final giftRanking = <Map<String, dynamic>>[].obs;
-  final selectedCategory = Rxn<GiftCategory>();
-  final selectedGift = Rxn<GiftModel>();
+  final isSending = false.obs;
+  final userCoins = 0.obs;
 
-  // Categorized store gifts
-  final hotGifts = <GiftModel>[].obs;
-  final basicGifts = <GiftModel>[].obs;
-  final premiumGifts = <GiftModel>[].obs;
-  final luxuryGifts = <GiftModel>[].obs;
-  final vipGifts = <GiftModel>[].obs;
-  final luckyGifts = <GiftModel>[].obs;
-  final festivalGifts = <GiftModel>[].obs;
-
-  // Inventory & Collection
-  final inventory = <GiftInventoryItem>[].obs;
-  final collection = <GiftCollectionItem>[].obs;
-  final uniqueCollectionCount = 0.obs;
-
-  // Gift Goal
-  final currentGiftGoal = Rxn<GiftGoalModel>();
-
-  // Live gift event (for animation trigger)
-  final Rx<GiftEventModel?> liveGiftEvent = Rxn<GiftEventModel?>();
-
-  // Combo counter
-  final comboCounter = 0.obs;
-  final comboMultiplier = 1.obs;
-  final isComboActive = false.obs;
-
-  // Treasure state
-  final isTreasureActive = false.obs;
-  final treasurePoolCoins = 0.obs;
-  final treasureDuration = 30.obs;
-
-  // Lucky jackpot
-  final Rx<GiftEventModel?> luckyJackpotEvent = Rxn<GiftEventModel?>();
-
-  List<GiftModel> get filteredGifts {
-    if (selectedCategory.value == null) return gifts;
-    return gifts.where((g) => g.category == selectedCategory.value).toList();
+  List<Map<String, dynamic>> get filteredGifts {
+    if (selectedCategory.value == 'All') return gifts;
+    return gifts.where((g) => g['category'] == selectedCategory.value).toList();
   }
 
   @override
-  void onInit() {
-    super.onInit();
-    fetchGifts();
-    fetchGiftInventory();
-    fetchGiftCollection();
-  }
+  void onInit() { super.onInit(); loadGifts(); _loadBalance(); }
 
-  Future<void> fetchGifts() async {
+  Future<void> loadGifts() async {
     isLoading.value = true;
     try {
-      final response = await _apiService.get('/gifts/store');
-      if (response is Map && response['success'] == true) {
-        final data = response['gifts'] as List? ?? [];
-        gifts.assignAll(data.map((g) => GiftModel.fromJson(Map<String, dynamic>.from(g))).toList());
-
-        // Categorized
-        final cat = response['categorized'] as Map? ?? {};
-        hotGifts.assignAll((cat['hot'] as List? ?? []).map((g) => GiftModel.fromJson(Map<String, dynamic>.from(g))).toList());
-        basicGifts.assignAll((cat['basic'] as List? ?? []).map((g) => GiftModel.fromJson(Map<String, dynamic>.from(g))).toList());
-        premiumGifts.assignAll((cat['premium'] as List? ?? []).map((g) => GiftModel.fromJson(Map<String, dynamic>.from(g))).toList());
-        luxuryGifts.assignAll((cat['luxury'] as List? ?? []).map((g) => GiftModel.fromJson(Map<String, dynamic>.from(g))).toList());
-        vipGifts.assignAll((cat['vip'] as List? ?? []).map((g) => GiftModel.fromJson(Map<String, dynamic>.from(g))).toList());
-        luckyGifts.assignAll((cat['lucky'] as List? ?? []).map((g) => GiftModel.fromJson(Map<String, dynamic>.from(g))).toList());
-        festivalGifts.assignAll((cat['festival'] as List? ?? []).map((g) => GiftModel.fromJson(Map<String, dynamic>.from(g))).toList());
+      final res = await _api.get('/gifts');
+      if (res['success'] == true) {
+        gifts.value = List<Map<String, dynamic>>.from(res['data'] ?? []);
+        final cats = gifts.map((g) => g['category'] as String? ?? 'basic').toSet().toList();
+        categories.value = ['All', ...cats];
       }
-    } catch (e) {
-      debugPrint('[GiftController] fetchGifts error: $e');
-    } finally {
-      isLoading.value = false;
-    }
+    } catch (_) {}
+    isLoading.value = false;
   }
 
-  void filterByCategory(GiftCategory? category) {
-    selectedCategory.value = category;
-  }
-
-  Future<bool> sendGift(String receiverId, GiftModel gift, {int quantity = 1, String? roomId, String? idempotencyKey}) async {
+  Future<void> _loadBalance() async {
     try {
-      final body = <String, dynamic>{
-        'giftId': gift.id,
-        'receiverId': receiverId,
-        'quantity': quantity,
-        if (roomId != null) 'roomId': roomId,
-        if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
-      };
-      if (gift.comboEnabled) body['comboMultiplier'] = 1;
-
-      final response = await _apiService.post('/gifts/send', body: body);
-      if (response is Map && response['success'] == true) {
-        // If lucky, show jackpot
-        if (response['luckyMultiplier'] != null) {
-          final multiplier = response['luckyMultiplier'] as int;
-          final winAmount = response['luckyWinAmount'] as int? ?? 0;
-          luckyJackpotEvent.value = GiftEventModel(
-            eventId: '',
-            giftId: gift.id,
-            giftName: gift.giftName,
-            senderId: '',
-            senderName: 'You',
-            receiverId: receiverId,
-            receiverName: 'Receiver',
-            coinCost: (gift.coinPrice * quantity).toInt(),
-            diamondEarned: 0,
-            isLucky: true,
-            luckyMultiplier: multiplier,
-            luckyWinAmount: winAmount,
-          );
-        }
-        return true;
-      }
-      return false;
-    } catch (e) {
-      debugPrint('[GiftController] sendGift error: $e');
-      return false;
-    }
+      final res = await _api.get('/wallet/balance');
+      if (res['success'] == true) userCoins.value = res['data']?['coins'] ?? 0;
+    } catch (_) {}
   }
 
-  Future<bool> sendComboGift(String receiverId, GiftModel gift, {int comboMultiplier = 5, String? roomId}) async {
-    try {
-      final response = await _apiService.post('/gifts/combo', body: {
-        'giftId': gift.id,
-        'receiverId': receiverId,
-        'comboMultiplier': comboMultiplier,
-        if (roomId != null) 'roomId': roomId,
-      });
-      return response is Map && response['success'] == true;
-    } catch (e) {
-      debugPrint('[GiftController] sendComboGift error: $e');
-      return false;
+  Future<void> sendGift({required String roomId, String? targetUserId}) async {
+    final gift = selectedGift.value;
+    if (gift == null) return;
+    final price = gift['price'] as int? ?? 0;
+    if (userCoins.value < price) {
+      Get.snackbar('Insufficient Coins', 'You need $price coins to send this gift',
+        backgroundColor: const Color(0xFFFF4757), colorText: const Color(0xFFFFFFFF));
+      return;
     }
-  }
-
-  Future<bool> claimTreasure(String giftEventId) async {
+    isSending.value = true;
     try {
-      final response = await _apiService.post('/gifts/treasure/claim', body: {
-        'giftEventId': giftEventId,
-      });
-      if (response is Map && response['success'] == true) {
-        return true;
-      }
-      return false;
-    } catch (e) {
-      debugPrint('[GiftController] claimTreasure error: $e');
-      return false;
-    }
-  }
-
-  Future<void> fetchGiftHistory() async {
-    try {
-      final response = await _apiService.get('/gifts/history');
-      if (response is Map && response['success'] == true) {
-        final data = response['history'] as List? ?? [];
-        giftHistory.assignAll(data.map((g) => GiftHistoryModel.fromJson(Map<String, dynamic>.from(g))).toList());
-      }
-    } catch (e) {
-      debugPrint('[GiftController] fetchGiftHistory error: $e');
-    }
-  }
-
-  Future<void> fetchGiftRanking({String type = 'sender'}) async {
-    try {
-      final response = await _apiService.get('/gifts/leaderboard', query: {'type': type, 'limit': '50'});
-      if (response is Map && response['success'] == true) {
-        final data = response['leaderboard'] as List? ?? [];
-        giftRanking.assignAll(data.map((g) => Map<String, dynamic>.from(g)).toList());
-      }
-    } catch (e) {
-      debugPrint('[GiftController] fetchGiftRanking error: $e');
-    }
-  }
-
-  Future<void> fetchGiftInventory() async {
-    try {
-      final response = await _apiService.get('/gifts/inventory');
-      if (response is Map && response['success'] == true) {
-        final data = response['inventory'] as List? ?? [];
-        inventory.assignAll(data.map((i) => GiftInventoryItem.fromJson(Map<String, dynamic>.from(i))).toList());
-      }
-    } catch (e) {
-      debugPrint('[GiftController] fetchGiftInventory error: $e');
-    }
-  }
-
-  Future<void> fetchGiftCollection() async {
-    try {
-      final response = await _apiService.get('/gifts/collection');
-      if (response is Map && response['success'] == true) {
-        final data = response['collection'] as List? ?? [];
-        collection.assignAll(data.map((c) => GiftCollectionItem.fromJson(Map<String, dynamic>.from(c))).toList());
-        uniqueCollectionCount.value = response['uniqueGiftsCount'] ?? 0;
-      }
-    } catch (e) {
-      debugPrint('[GiftController] fetchGiftCollection error: $e');
-    }
-  }
-
-  Future<void> fetchGiftStatistics() async {
-    // Returns map with totals
-    try {
-      final response = await _apiService.get('/gifts/statistics');
-      if (response is Map && response['success'] == true) {
-        final stats = response['statistics'] as Map? ?? {};
-        debugPrint('[GiftController] Stats: $stats');
-      }
-    } catch (e) {
-      debugPrint('[GiftController] fetchGiftStatistics error: $e');
-    }
-  }
-
-  Future<void> setGiftGoal(String roomId, int targetCoins, {String? title}) async {
-    try {
-      final response = await _apiService.post('/gifts/goals', body: {
+      final res = await _api.post('/gifts/send', {
+        'giftId': gift['_id'],
         'roomId': roomId,
-        'targetCoins': targetCoins,
-        'title': title ?? 'Room Gift Goal',
+        if (targetUserId != null) 'receiverId': targetUserId,
       });
-      if (response is Map && response['success'] == true) {
-        final goal = GiftGoalModel.fromJson(Map<String, dynamic>.from(response['goal']));
-        currentGiftGoal.value = goal;
+      if (res['success'] == true) {
+        userCoins.value -= price;
+        Get.back(); // Close sheet
+        Get.snackbar('Gift Sent! 🎁', 'You sent ${gift['name']}',
+          backgroundColor: const Color(0xFFFF8906), colorText: const Color(0xFF000000));
+        selectedGift.value = null;
+      } else {
+        Get.snackbar('Failed', res['message'] ?? 'Could not send gift',
+          backgroundColor: const Color(0xFFFF4757), colorText: const Color(0xFFFFFFFF));
       }
     } catch (e) {
-      debugPrint('[GiftController] setGiftGoal error: $e');
+      Get.snackbar('Error', e.toString());
     }
-  }
-
-  void updateGiftGoalProgress(int currentCoins, int targetCoins) {
-    if (currentGiftGoal.value != null) {
-      currentGiftGoal.value = GiftGoalModel(
-        targetCoins: targetCoins,
-        currentCoins: currentCoins,
-        title: currentGiftGoal.value!.title,
-        progressPercent: targetCoins > 0 ? (currentCoins / targetCoins).clamp(0.0, 1.0) : 0.0,
-      );
-    }
-  }
-
-  void onLiveGiftEffect(GiftEventModel event) {
-    liveGiftEvent.value = event;
-
-    // Auto-clear after animation duration
-    Future.delayed(const Duration(seconds: 8), () {
-      if (liveGiftEvent.value?.eventId == event.eventId) {
-        liveGiftEvent.value = null;
-      }
-    });
-
-    // Handle combo counter
-    if (event.isComboGift) {
-      isComboActive.value = true;
-      comboMultiplier.value = event.comboMultiplier;
-      comboCounter.value = event.quantity;
-      Future.delayed(const Duration(seconds: 3), () {
-        isComboActive.value = false;
-        comboCounter.value = 0;
-        comboMultiplier.value = 1;
-      });
-    }
-
-    // Handle treasure activation
-    if (event.isTreasure) {
-      isTreasureActive.value = true;
-      final treasureSecs = event.treasureDurationSeconds ?? 30;
-      Future.delayed(Duration(seconds: treasureSecs), () {
-        isTreasureActive.value = false;
-      });
-    }
-
-    // Handle lucky jackpot
-    if (event.isJackpot) {
-      luckyJackpotEvent.value = event;
-      Future.delayed(const Duration(seconds: 5), () {
-        luckyJackpotEvent.value = null;
-      });
-    }
-  }
-
-  void onComboCounterUpdate(Map<String, dynamic> data) {
-    isComboActive.value = true;
-    comboMultiplier.value = data['comboMultiplier'] ?? 1;
-    comboCounter.value = data['totalQuantity'] ?? 0;
-
-    if (data['isFinal'] == true) {
-      Future.delayed(const Duration(seconds: 2), () {
-        isComboActive.value = false;
-        comboCounter.value = 0;
-      });
-    }
-  }
-
-  void onTreasureSpawned(Map<String, dynamic> data) {
-    isTreasureActive.value = true;
-    treasurePoolCoins.value = data['poolCoins'] ?? 0;
-    treasureDuration.value = data['durationSeconds'] ?? 30;
-  }
-
-  void selectGift(GiftModel gift) {
-    selectedGift.value = gift;
-  }
-
-  void clearSelection() {
-    selectedGift.value = null;
-  }
-
-  @override
-  void onClose() {
-    clearSelection();
-    super.onClose();
+    isSending.value = false;
   }
 }
