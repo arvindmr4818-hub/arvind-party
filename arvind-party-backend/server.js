@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { initFirebaseAdmin } = require('./src/config/firebaseAdmin');
+initFirebaseAdmin();;
 
 // ─────────────────────────────────────────────────────────────────────────
 // ENVIRONMENT VARIABLE VALIDATION
