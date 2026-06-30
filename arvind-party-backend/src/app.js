@@ -9,6 +9,7 @@ const Logger = require('./utils/logger');
 
 // ─── IMPORTING ALL PRODUCTION ROUTES ───────────────────────────────────────
 const adminAuthRoutes = require('./routes/adminAuthRoutes');
+const firebaseLoginRoute = require('./modules/auth/firebaseLoginRoute');
 const authRoutes = require('./routes/auth.routes');
 const authSecureRoutes = require('./routes/authSecure.routes');
 const googleAuthRoutes = require('./routes/googleAuthRoutes');
@@ -152,6 +153,8 @@ app.use('/api/health', healthRoutes);
 
 // ─── AUTH ROUTES ──────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, adminAuthRoutes);
+app.use('/api/auth', authLimiter, firebaseLoginRoute);
+app.use('/api/users', firebaseLoginRoute); // /me endpoint
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/auth', authLimiter, authSecureRoutes);
 app.use('/api/auth/social', googleAuthRoutes);
