@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.arvindparty.app"
+    namespace = "com.arvind.party"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -22,7 +22,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.arvindparty.app"
+        // Must match google-services.json package_name exactly
+        applicationId = "com.arvind.party"
         multiDexEnabled = true
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
