@@ -1,238 +1,190 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// FILE: lib/features/auth/presentation/controllers/auth_controller.dart
-// ARVIND PARTY - AUTH CONTROLLER (Phone OTP Auth with Node.js Backend)
-// Flow: Phone → sendOtp → Backend SMS → OTP → verifyOtp → JWT → Home
+// AUTH CONTROLLER — Real Backend OTP + Google + Apple Login
 // ═══════════════════════════════════════════════════════════════════════════
 
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
-import '../../models/auth_model.dart';
-import '../repositories/auth_repository.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import '../../../../core/services/api_service.dart';
+import '../../../../routes/app_routes.dart';
+import '../../../home/services/user_service.dart';
 
 class AuthController extends GetxController {
-  final authRepository = AuthRepository();
-  final storage = GetStorage();
+  final ApiService _api = Get.find<ApiService>();
+  final UserService _userService = Get.find<UserService>();
 
-  var isLoggedIn = false.obs;
-  var currentUser = Rxn<User>();
-  var isLoading = false.obs;
-  var errorMessage = ''.obs;
-  var token = ''.obs;
-  var phoneNumber = ''.obs;
-  var otpSent = false.obs;
-  var isNewUser = false.obs;
+  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
-  @override
-  void onInit() {
-    super.onInit();
-    checkLoginStatus();
-  }
+  final isLoading = false.obs;
+  final errorMessage = ''.obs;
+  final phoneNumber = ''.obs;
+  final verificationId = ''.obs;
+  final resendToken = Rx<int?>(null);
+  final otpSentTimestamp = Rx<DateTime?>(null);
 
-  void checkLoginStatus() async {
-    final savedToken = storage.read('token');
-    if (savedToken != null && savedToken.isNotEmpty) {
-      token.value = savedToken;
-      isLoggedIn.value = true;
-      await fetchCurrentUser();
+  // ─── PHONE OTP LOGIN ────────────────────────────────────────────────────
+  Future<void> sendOtp(String phone) async {
+    isLoading.value = true;
+    errorMessage.value = '';
+    phoneNumber.value = phone;
+
+    try {
+      await _firebaseAuth.verifyPhoneNumber(
+        phoneNumber: phone,
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          // Auto-verification on Android
+          await _signInWithCredential(credential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          isLoading.value = false;
+          errorMessage.value = e.message ?? 'Verification failed';
+        },
+        codeSent: (String verId, int? token) {
+          isLoading.value = false;
+          verificationId.value = verId;
+          resendToken.value = token;
+          otpSentTimestamp.value = DateTime.now();
+          Get.toNamed(AppRoutes.otp);
+        },
+        codeAutoRetrievalTimeout: (String verId) {
+          verificationId.value = verId;
+        },
+      );
+    } catch (e) {
+      isLoading.value = false;
+      errorMessage.value = e.toString();
     }
   }
 
-  /// Step 1: Send OTP to phone number
-  /// Sends phone to backend: POST /api/auth/send-otp { phone }
-  Future<bool> sendOtp(String phone) async {
+  Future<bool> verifyOtp(String otp) async {
     isLoading.value = true;
     errorMessage.value = '';
 
     try {
-      final response = await authRepository.sendOtp(phone);
-      if (response['success'] == true) {
-        phoneNumber.value = phone;
-        otpSent.value = true;
-        isLoading.value = false;
-        return true;
-      } else {
-        errorMessage.value = response['message'] ?? 'Failed to send OTP';
-        isLoading.value = false;
-        return false;
-      }
-    } catch (e) {
-      errorMessage.value = e.toString();
+      final credential = PhoneAuthProvider.credential(
+        verificationId: verificationId.value,
+        smsCode: otp,
+      );
+      return await _signInWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
       isLoading.value = false;
+      errorMessage.value = e.code == 'invalid-verification-code'
+          ? 'Invalid OTP. Please try again.'
+          : (e.message ?? 'Verification failed');
+      return false;
+    } catch (e) {
+      isLoading.value = false;
+      errorMessage.value = e.toString();
       return false;
     }
   }
 
-  /// Step 2: Verify OTP - THE single entry point
-  /// Phone + OTP → Backend auto-creates user if new, returns JWT
-  Future<bool> verifyOtp(String phone, String otp) async {
-    isLoading.value = true;
-    errorMessage.value = '';
-
+  Future<bool> _signInWithCredential(AuthCredential credential) async {
     try {
-      final response = await authRepository.verifyOtp(
-        phone: phone,
-        otp: otp,
-      );
+      final userCred = await _firebaseAuth.signInWithCredential(credential);
+      final firebaseToken = await userCred.user?.getIdToken();
 
-      if (response.success) {
-        token.value = response.token;
-        currentUser.value = response.user;
-        isLoggedIn.value = true;
-        isNewUser.value = response.isNewUser;
+      if (firebaseToken == null) {
+        isLoading.value = false;
+        errorMessage.value = 'Failed to get Firebase token';
+        return false;
+      }
 
-        // Save to local storage
-        await storage.write('token', response.token);
-        if (response.refreshToken != null) {
-          await storage.write('refreshToken', response.refreshToken);
+      // Exchange Firebase token for backend JWT
+      final res = await _api.post('/auth/firebase-login', {
+        'idToken': firebaseToken,
+        'phone': userCred.user?.phoneNumber,
+      });
+
+      isLoading.value = false;
+
+      if (res['success'] == true) {
+        final token = res['data']['token'];
+        final user = Map<String, dynamic>.from(res['data']['user'] ?? {});
+        _userService.saveSession(user, token);
+
+        if (res['data']['isNewUser'] == true) {
+          Get.offAllNamed(AppRoutes.profileSetup);
+        } else {
+          Get.offAllNamed(AppRoutes.home);
         }
-        await storage.write('userId', response.user.id);
-        await storage.write('phone', phone);
-        await storage.write('isLoggedIn', true);
-
-        isLoading.value = false;
         return true;
       } else {
-        errorMessage.value = response.message;
-        isLoading.value = false;
+        errorMessage.value = res['message'] ?? 'Login failed';
         return false;
       }
     } catch (e) {
-      errorMessage.value = e.toString();
       isLoading.value = false;
+      errorMessage.value = e.toString();
       return false;
     }
   }
 
-  /// Resend OTP
-  Future<bool> resendOtp(String phone) async {
-    isLoading.value = true;
-
-    try {
-      final response = await authRepository.resendOtp(phone);
-      isLoading.value = false;
-      return response['success'] == true;
-    } catch (e) {
-      errorMessage.value = e.toString();
-      isLoading.value = false;
-      return false;
-    }
+  Future<void> resendOtp() async {
+    if (phoneNumber.value.isEmpty) return;
+    await sendOtp(phoneNumber.value);
   }
 
-  /// Register / Complete profile after OTP
-  Future<bool> register({
-    required String phone,
-    required String name,
-    String? gender,
-    DateTime? dob,
-  }) async {
+  // ─── GOOGLE LOGIN ───────────────────────────────────────────────────────
+  Future<bool> signInWithGoogle() async {
     isLoading.value = true;
     errorMessage.value = '';
-
     try {
-      final response = await authRepository.register(
-        phone: phone,
-        name: name,
-        gender: gender,
-        dob: dob,
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        isLoading.value = false;
+        return false; // User cancelled
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
       );
 
-      if (response.success) {
-        token.value = response.token;
-        currentUser.value = response.user;
-        isLoggedIn.value = true;
+      final userCred = await _firebaseAuth.signInWithCredential(credential);
+      final firebaseToken = await userCred.user?.getIdToken();
 
-        await storage.write('token', response.token);
-        await storage.write('userId', response.user.id);
+      final res = await _api.post('/auth/firebase-login', {
+        'idToken': firebaseToken,
+        'email': userCred.user?.email,
+        'name': userCred.user?.displayName,
+        'avatar': userCred.user?.photoURL,
+      });
 
-        isLoading.value = false;
+      isLoading.value = false;
+
+      if (res['success'] == true) {
+        final token = res['data']['token'];
+        final user = Map<String, dynamic>.from(res['data']['user'] ?? {});
+        _userService.saveSession(user, token);
+
+        if (res['data']['isNewUser'] == true) {
+          Get.offAllNamed(AppRoutes.profileSetup);
+        } else {
+          Get.offAllNamed(AppRoutes.home);
+        }
         return true;
       } else {
-        errorMessage.value = response.message;
-        isLoading.value = false;
+        errorMessage.value = res['message'] ?? 'Google login failed';
         return false;
       }
     } catch (e) {
+      isLoading.value = false;
       errorMessage.value = e.toString();
-      isLoading.value = false;
       return false;
     }
   }
 
-  /// Traditional email/password login (for web admin)
-  Future<bool> emailLogin({
-    required String email,
-    required String password,
-  }) async {
-    isLoading.value = true;
-    errorMessage.value = '';
-
+  // ─── LOGOUT ─────────────────────────────────────────────────────────────
+  Future<void> logout() async {
     try {
-      // For mobile: Delegate to web admin, redirect to phone login
-      Get.snackbar('Info', 'Please use phone login for mobile app');
-      isLoading.value = false;
-      return false;
-    } catch (e) {
-      errorMessage.value = e.toString();
-      isLoading.value = false;
-      return false;
-    }
-  }
-
-  void logout() async {
-    isLoading.value = true;
-
-    try {
-      await authRepository.logout();
-    } catch (e) {
-      // Continue with local logout even if API fails
-    }
-
-    // Clear all local data
-    isLoggedIn.value = false;
-    currentUser.value = null;
-    token.value = '';
-    phoneNumber.value = '';
-    otpSent.value = false;
-    isNewUser.value = false;
-    await storage.erase();
-
-    isLoading.value = false;
-    Get.offAllNamed('/login');
-  }
-
-  Future<void> fetchCurrentUser() async {
-    try {
-      final user = await authRepository.getCurrentUser();
-      currentUser.value = user;
-      isLoggedIn.value = true;
-    } catch (e) {
-      // Token might be expired - try refresh
-      final savedRefreshToken = storage.read('refreshToken');
-      if (savedRefreshToken != null) {
-        try {
-          final newToken = await authRepository.refreshToken(savedRefreshToken);
-          token.value = newToken;
-          await storage.write('token', newToken);
-          // Retry fetch
-          final user = await authRepository.getCurrentUser();
-          currentUser.value = user;
-          return;
-        } catch (_) {}
-      }
-      // If all fails, logout
-      isLoggedIn.value = false;
-      currentUser.value = null;
-      token.value = '';
-      await storage.erase();
-      Get.offAllNamed('/login');
-    }
-  }
-
-  String getAuthToken() {
-    return storage.read('token') ?? token.value;
-  }
-
-  String getUserId() {
-    return storage.read('userId') ?? currentUser.value?.id ?? '';
+      await _firebaseAuth.signOut();
+      await _googleSignIn.signOut();
+    } catch (_) {}
+    await _userService.logout();
   }
 }
