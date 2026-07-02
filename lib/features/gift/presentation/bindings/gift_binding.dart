@@ -1,8 +1,3 @@
-// ═══════════════════════════════════════════════════════════════════════════
-// FILE: lib/features/gift/presentation/bindings/gift_binding.dart
-// ARVIND PARTY - GIFT BINDING
-// ═══════════════════════════════════════════════════════════════════════════
-
 import 'package:get/get.dart';
 import '../controllers/gift_controller.dart';
 
