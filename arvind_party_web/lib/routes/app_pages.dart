@@ -29,6 +29,8 @@ import '../modules/pk_battle/pk_battle_management_view.dart';
 
 // New complete page imports
 import '../modules/shared/admin_shell.dart';
+import '../modules/power_matrix/power_matrix_view.dart';
+
 import '../modules/users/user_management_view.dart';
 import '../modules/staff_management/staff_management_view.dart';
 import '../modules/gifts/gifts_management_view.dart';
@@ -107,6 +109,7 @@ class AppPages {
     GetPage(name: AppRoutes.pkBattleManagement, page: () => PkBattleManagementView()),
 
     // ─── 404 ──────────────────────────────────────────────────────────
+    GetPage(name: AppRoutes.powerMatrix, page: () => const PowerMatrixView()),
     GetPage(name: AppRoutes.notFound, page: () => const NotFoundPage()),
   ];
 }
