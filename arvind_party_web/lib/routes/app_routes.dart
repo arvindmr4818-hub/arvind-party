@@ -27,6 +27,7 @@ class AppRoutes {
 
   // Coin Manager (OWNER ONLY)
   static const String coinManager = '/coin-manager';
+  static const String powerMatrix = '/power-matrix';
 
   // Agency
   static const String agency = '/agency';
